@@ -9,6 +9,22 @@ rule, the negative must stay silent.
 Naming: `<rule-stem>.positive.json` / `<rule-stem>.negative.json`, where the
 stem matches the rule file (e.g. `extract_system_prompt_markers`).
 
+## Declarative generator
+
+These per-rule fixtures are also expressed declaratively in
+`prompthound/generator.py` as `SampleSpec` overlays on a shared benign base
+event. The reusable generator emits a **mixed benign + signature dataset**
+(every event schema-valid) and is deterministic by `--seed`:
+
+```
+python -m prompthound.generator --out out/telemetry.jsonl --seed 0
+```
+
+P1 (signatures, not payloads) is enforced *in code*: `prompthound/p1_guard.py`
+scans content fields for working-exploit patterns and `build_samples()` refuses
+to emit a dataset that smuggles one in. See `tests/test_generator.py`
+(`pytest -k generator`).
+
 A couple of standalone events (`benign_chat.json`,
 `system_prompt_extraction_attempt.json`) are the PRD §10.9 example events kept as
 schema/toolchain references; like every file here they must validate against the
