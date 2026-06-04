@@ -1,4 +1,8 @@
-"""PromptHound local CI runner (PRD §16, CHECKLIST Phase 2). Standard library only.
+"""PromptHound local CI runner (PRD §16, CHECKLIST Phase 2).
+
+The runner itself is standard-library only; the ``convert`` stage additionally
+imports ``prompthound.convert`` (pySigma + the pinned backends, PRD §13) to
+regenerate SPL/KQL — install the lockfile before running it.
 
 There is no hosted CI. Run the full check sequence on demand:
 
@@ -24,6 +28,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+OUT_DIR = REPO_ROOT / "out"
+RULES_DIR = REPO_ROOT / "rules"
+FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
 BAR = "=" * 72
 
 
@@ -56,6 +63,82 @@ def placeholder(note: str) -> Callable[[], bool]:
     return _run
 
 
+# --- convert stage (PRD §16 "convert (snapshot)", §12, decision D5) -----------
+#
+# Real conversion: every rule is run through both pySigma backends and the SPL +
+# KQL is regenerated into out/. The stage asserts each output is non-empty and
+# byte-stable (a second pass produces identical text), which is the snapshot
+# guarantee PRD §12 asks for. Until real rules exist under rules/ it falls back
+# to the toolchain smoke fixture so the pipeline is still proven on every run.
+
+
+def _discover_rule_files() -> tuple[list[Path], Path, str]:
+    """Return (rule files, base dir for out/ mirroring, human label)."""
+    rules = sorted(RULES_DIR.glob("**/*.yml")) + sorted(RULES_DIR.glob("**/*.yaml"))
+    if rules:
+        return rules, RULES_DIR, "rules/"
+    fixtures = sorted(FIXTURES_DIR.glob("*.yml")) + sorted(FIXTURES_DIR.glob("*.yaml"))
+    return fixtures, FIXTURES_DIR, "tests/fixtures/ (no rules authored yet)"
+
+
+def _write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text if text.endswith("\n") else text + "\n", encoding="utf-8")
+
+
+def convert_stage() -> bool:
+    """Regenerate SPL + KQL into out/; fail on empty or non-deterministic output."""
+    from prompthound.convert import convert_rule
+
+    rule_files, base_dir, label = _discover_rule_files()
+    if not rule_files:
+        print("  no rule or fixture files found to convert")
+        return False
+    print(f"  converting {len(rule_files)} file(s) from {label}")
+
+    ok = True
+    for rule_file in rule_files:
+        rel = rule_file.relative_to(base_dir).with_suffix("")
+        try:
+            result = convert_rule(rule_file)
+            # Stability/snapshot: a second pass must be byte-identical.
+            again = convert_rule(rule_file)
+        except Exception as exc:  # conversion error => stage fails, with context
+            print(f"  [FAIL] {rel}: {type(exc).__name__}: {exc}")
+            ok = False
+            continue
+
+        spl_text = "\n".join(result.spl)
+        kql_text = "\n".join(result.kql)
+        stable = (
+            result.spl == again.spl
+            and result.kql == again.kql
+            and result.savedsearches == again.savedsearches
+        )
+        if not spl_text.strip():
+            print(f"  [FAIL] {rel}: empty SPL")
+            ok = False
+        if not kql_text.strip():
+            print(f"  [FAIL] {rel}: empty KQL")
+            ok = False
+        if not stable:
+            print(f"  [FAIL] {rel}: conversion is not byte-stable across runs")
+            ok = False
+        if not (spl_text.strip() and kql_text.strip() and stable):
+            continue
+
+        # Mirror the source layout under out/ so nested categories never collide.
+        _write_text(OUT_DIR / "splunk" / rel.with_suffix(".spl"), spl_text)
+        _write_text(
+            OUT_DIR / "splunk" / rel.parent / (rel.name + ".savedsearches.conf"),
+            result.savedsearches,
+        )
+        _write_text(OUT_DIR / "kusto" / rel.with_suffix(".kql"), kql_text)
+        print(f"  [ ok ] {rel}: SPL={len(result.spl)} KQL={len(result.kql)} -> out/")
+
+    return ok
+
+
 @dataclass(frozen=True)
 class Stage:
     name: str
@@ -73,11 +156,7 @@ STAGES: list[Stage] = [
         placeholder("validate generator samples against schema/ -- Phase 1 (PRD §16)."),
         is_placeholder=True,
     ),
-    Stage(
-        "convert (SPL + KQL snapshot)",
-        placeholder("pySigma conversion + snapshot test -- Phase 1/2 (PRD §16, D5)."),
-        is_placeholder=True,
-    ),
+    Stage("convert (SPL + KQL snapshot)", convert_stage),
     Stage("pytest", tool("pytest", "-q")),
     Stage(
         "coverage-build",
