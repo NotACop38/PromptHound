@@ -619,7 +619,9 @@ def build_samples(
     content field carries a working-exploit pattern -- P1 enforced in code, not
     just review (PRD §8).
     """
-    rng = random.Random(seed)
+    # Deterministic synthetic telemetry, never cryptographic: a fixed seed must
+    # reproduce byte-identical output (PRD §8 P2). Not a CSPRNG by design.
+    rng = random.Random(seed)  # nosec B311
     samples: list[Sample] = []
 
     # A single advancing cursor keeps the whole dataset in non-decreasing

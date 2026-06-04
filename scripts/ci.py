@@ -9,20 +9,23 @@ There is no hosted CI. Run the full check sequence on demand:
     python scripts/ci.py        # or: make ci
 
 It runs an ordered list of stages, prints a PASS/FAIL banner for each, and exits
-non-zero if any non-placeholder stage fails. Stage order follows PRD §16
-(lint -> schema-validate -> convert -> test -> coverage build), with a final
-security stage for the P1-P4 defensive-posture checks.
+non-zero if any stage fails. Stage order follows PRD §16 (lint -> schema-validate
+-> convert -> test -> coverage build), with a final security stage for the P1-P4
+defensive-posture + supply-chain checks (PRD §8, §17).
 
-Stages marked ``[placeholder]`` are wired into the sequence but not yet
-implemented; they pass without doing work so the runner stays green on the
-current scaffold while keeping the remaining gaps visible.
+A single stage can be run in isolation by name substring::
+
+    python scripts/ci.py --only security
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
-import subprocess
+
+# Runs pinned dev tools (ruff/mypy/pytest) by fixed argv, never a shell string.
+import subprocess  # nosec B404
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -48,7 +51,8 @@ def run_command(cmd: list[str]) -> bool:
         print(f"  tool not found on PATH: {exe}")
         return False
     print(f"  $ {' '.join(cmd)}")
-    return subprocess.run(cmd, cwd=REPO_ROOT, check=False).returncode == 0
+    # Fixed argv (no shell); the tool name is resolved on PATH above.
+    return subprocess.run(cmd, cwd=REPO_ROOT, check=False).returncode == 0  # nosec B603
 
 
 def tool(name: str, *args: str) -> Callable[[], bool]:
@@ -93,16 +97,6 @@ def schema_validate() -> bool:
         else:
             print(f"  ok       {rel}")
     return ok
-
-
-def placeholder(note: str) -> Callable[[], bool]:
-    """Build a stage that does nothing yet but reports why (and passes)."""
-
-    def _run() -> bool:
-        print(f"  PLACEHOLDER -- {note}")
-        return True
-
-    return _run
 
 
 # --- convert stage (PRD §16 "convert (snapshot)", §12, decision D5) -----------
@@ -173,11 +167,24 @@ def coverage_build_stage() -> bool:
     return True
 
 
+# --- security stage (PRD §8 P1-P4, §17) ---------------------------------------
+#
+# Delegates to scripts.security so the checks stay testable in isolation; that
+# module bundles pip-audit (lockfile), bandit (first-party Python), and a secrets
+# scan, each failing on findings.
+
+
+def security_stage() -> bool:
+    """Run the defensive-posture / supply-chain checks (delegates to scripts.security)."""
+    from scripts.security import security_stage as run_security
+
+    return run_security()
+
+
 @dataclass(frozen=True)
 class Stage:
     name: str
     run: Callable[[], bool]
-    is_placeholder: bool = False
 
 
 # Ordered per PRD §16: lint -> schema-validate -> convert -> test -> coverage.
@@ -189,24 +196,44 @@ STAGES: list[Stage] = [
     Stage("convert (SPL + KQL snapshot)", convert_stage),
     Stage("pytest", tool("pytest", "-q")),
     Stage("coverage-build", coverage_build_stage),
-    Stage(
-        "security",
-        placeholder("defensive-posture / P1 signature checks -- Phase 6 (PRD §8)."),
-        is_placeholder=True,
-    ),
+    # Defensive posture + supply chain, enforced locally (PRD §8 P1-P4, §17):
+    # pip-audit over the lockfile, bandit over the first-party Python, and a
+    # secrets scan -- each fails on findings. Run standalone with
+    # `python scripts/ci.py --only security`.
+    Stage("security", security_stage),
 ]
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python scripts/ci.py",
+        description="PromptHound local CI runner (PRD §16). Runs every stage by default.",
+    )
+    parser.add_argument(
+        "--only",
+        metavar="STAGE",
+        help="Run only the stage(s) whose name contains this string (e.g. --only security).",
+    )
+    args = parser.parse_args(argv)
+
+    stages = STAGES
+    if args.only:
+        needle = args.only.lower()
+        stages = [s for s in STAGES if needle in s.name.lower()]
+        if not stages:
+            available = ", ".join(s.name for s in STAGES)
+            parser.error(f"no stage matches --only {args.only!r}. Available: {available}")
+
     banner("PromptHound local CI runner")
     print(f"  repo:   {REPO_ROOT}")
     print(f"  python: {sys.version.split()[0]}")
+    if args.only:
+        print(f"  only:   {args.only} -> {', '.join(s.name for s in stages)}")
 
     results: list[tuple[str, bool]] = []
-    total = len(STAGES)
-    for index, stage in enumerate(STAGES, start=1):
-        suffix = "  [placeholder]" if stage.is_placeholder else ""
-        banner(f"STAGE {index}/{total}: {stage.name}{suffix}")
+    total = len(stages)
+    for index, stage in enumerate(stages, start=1):
+        banner(f"STAGE {index}/{total}: {stage.name}")
         ok = stage.run()
         print(f"{'[ PASS ]' if ok else '[ FAIL ]'} {stage.name}", flush=True)
         results.append((stage.name, ok))
