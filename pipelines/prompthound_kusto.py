@@ -8,10 +8,18 @@ There is deliberately NO ``pysigma-backend-sentinel`` -- it does not exist (D5);
 Sentinel KQL comes from the Kusto backend.
 
 ASIM has no native table for LLM gateway audit logs, so we target a custom
-Log Analytics table (``PromptHoundAuditLog``). Log Analytics custom-log columns
+Log Analytics table. Custom tables in Azure Monitor Logs always carry the
+``_CL`` suffix, hence ``PromptHoundAuditLog_CL``. Log Analytics column names
 cannot contain dots, so the dotted OTel-style schema fields are mapped to
-PascalCase columns here. (``azure_monitor`` is the documented fallback if a site
-ingests these events into a different table -- only the mappings below change.)
+PascalCase columns here.
+
+Column naming: DCR-based custom tables (the current Logs-ingestion path) accept
+arbitrary column names, so the unsuffixed PascalCase columns below are valid as
+written. The legacy HTTP Data Collector API instead appends *type* suffixes
+(``_s`` string, ``_d`` double, ``_b`` bool, ...); a site ingesting via that path
+would add those suffixes to the values below -- this map is the single place to
+do so. (``azure_monitor`` is the documented fallback if a site ingests these
+events into a different table -- only the table/mappings below change.)
 """
 
 from __future__ import annotations
@@ -22,7 +30,8 @@ from sigma.processing.pipeline import ProcessingItem, ProcessingPipeline
 from sigma.processing.transformations import FieldMappingTransformation
 
 # Custom Log Analytics / Sentinel table the gateway audit log is ingested into.
-GATEWAY_TABLE = "PromptHoundAuditLog"
+# Azure Monitor custom tables always carry the ``_CL`` suffix.
+GATEWAY_TABLE = "PromptHoundAuditLog_CL"
 
 # Schema (PRD §10, dotted OTel-style) -> Sentinel custom-log column names.
 # Extend this map as new schema fields are referenced by rules.

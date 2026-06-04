@@ -1,2 +1,2 @@
-PromptHoundAuditLog
+PromptHoundAuditLog_CL
 | where InjectionMarkers >= 1 and (InputMessages contains "system prompt" or InputMessages contains "system instructions" or InputMessages contains "initial instructions" or InputMessages contains "ignore previous instructions" or InputMessages contains "ignore all previous instructions" or InputMessages contains "disregard previous instructions" or InputMessages contains "reveal your instructions" or InputMessages contains "repeat the words above" or InputMessages contains "print your system prompt")
