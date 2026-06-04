@@ -48,13 +48,16 @@ _PIPELINE_PRIORITY = 9
 
 def _prompthound_field_pipeline() -> ProcessingPipeline:
     """The PromptHound-specific half: flatten schema fields for ``llm_gateway`` rules."""
+    # Typed to FieldMappingTransformation's parameter (dict is invariant, so a
+    # plain dict[str, str] won't satisfy dict[str | None, str | list[str]]).
+    mapping: dict[str | None, str | list[str]] = {k: v for k, v in FIELD_MAP.items()}
     return ProcessingPipeline(
         name="PromptHound LLM Gateway field mapping (Kusto)",
         priority=_PIPELINE_PRIORITY,
         items=[
             ProcessingItem(
                 identifier="prompthound_kusto_field_mapping",
-                transformation=FieldMappingTransformation(dict(FIELD_MAP)),
+                transformation=FieldMappingTransformation(mapping),
                 rule_conditions=[LogsourceCondition(product="llm_gateway")],
             ),
         ],
@@ -86,7 +89,11 @@ def kusto_backend(
     flavour: KustoFlavour = "sentinelasim",
 ) -> KustoBackend:
     """Return a Kusto backend (target ``kusto``) wired to the PromptHound pipeline."""
-    return KustoBackend(processing_pipeline=prompthound_kusto_pipeline(query_table, flavour))
+    # KustoBackend accepts a ProcessingPipeline at runtime (its __init__ first arg);
+    # pinned pysigma-backend-kusto's stub mistypes the keyword, so ignore here.
+    return KustoBackend(
+        processing_pipeline=prompthound_kusto_pipeline(query_table, flavour)  # type: ignore[arg-type]
+    )
 
 
 __all__ = [

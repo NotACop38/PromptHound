@@ -1,1 +1,0 @@
-event_action="chat" guardrail_input_categories="*instruction_extraction*" content_input_injection_markers>=1

@@ -35,13 +35,16 @@ _PIPELINE_PRIORITY = 9
 
 def prompthound_splunk_pipeline() -> ProcessingPipeline:
     """Return a fresh PromptHound → Splunk processing pipeline (factory pattern)."""
+    # Typed to FieldMappingTransformation's parameter (dict is invariant, so a
+    # plain dict[str, str] won't satisfy dict[str | None, str | list[str]]).
+    mapping: dict[str | None, str | list[str]] = {k: v for k, v in FIELD_MAP.items()}
     return ProcessingPipeline(
         name="PromptHound LLM Gateway to Splunk",
         priority=_PIPELINE_PRIORITY,
         items=[
             ProcessingItem(
                 identifier="prompthound_splunk_field_mapping",
-                transformation=FieldMappingTransformation(dict(FIELD_MAP)),
+                transformation=FieldMappingTransformation(mapping),
                 rule_conditions=[LogsourceCondition(product="llm_gateway")],
             ),
         ],
