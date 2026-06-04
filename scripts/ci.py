@@ -152,18 +152,25 @@ def convert_stage() -> bool:
 
 
 def coverage_build_stage() -> bool:
-    """Regenerate the coverage map into out/coverage/; fail on missing/unknown tags."""
-    from coverage.build_coverage import OUT_DIR as COVERAGE_OUT_DIR
-    from coverage.build_coverage import generate_artifacts, write_artifacts
+    """Regenerate the coverage map (out/coverage/ + the README SVG); fail on bad tags."""
+    from coverage.build_coverage import REPO_ROOT as COVERAGE_REPO_ROOT
+    from coverage.build_coverage import (
+        generate_artifacts,
+        generate_presentation_assets,
+        write_artifacts,
+    )
 
     artifacts, errors = generate_artifacts()
+    assets, asset_errors = generate_presentation_assets()
+    errors = errors or asset_errors
     if errors:
         for error in errors:
             print(f"  [FAIL] {error}")
         return False
     write_artifacts(artifacts)
-    for path in sorted(artifacts):
-        print(f"  [ ok ] out/{path.relative_to(COVERAGE_OUT_DIR.parent)}")
+    write_artifacts(assets)
+    for path in sorted({**artifacts, **assets}):
+        print(f"  [ ok ] {path.relative_to(COVERAGE_REPO_ROOT)}")
     return True
 
 

@@ -63,7 +63,7 @@ Exit: ≥1 rule per category (PRD §11), all green, each with honest falsepositi
 ## Phase 4 — Coverage map
 Goal: auto-generated, never-stale OWASP × ATLAS coverage.
 Exit: coverage/build_coverage.py emits the map from metadata; CI rebuilds it; not hand-editable.
-- [x] 🧠 Choose output: ATLAS Navigator layer JSON + HTML/Markdown grid.
+- [x] 🧠 Choose output: ATLAS Navigator layer JSON + HTML/Markdown grid + embeddable SVG card (`docs/assets/coverage.svg`, generated; gated by the CI coverage stage).
 - [x] 🤖 Build the generator (Jinja2).
 - [x] 🤖 Render OWASP grid + ATLAS coverage + Tier breakdown.
 - [x] 🤖 CI step regenerates and fails on error (`scripts/ci.py` coverage-build stage; unknown/missing tags fail).
@@ -74,8 +74,8 @@ Goal: the 10-second value hook and one-command wow.
 Exit: demo/run_demo.py does generate → detect → hits + coverage map, from a clean clone.
 - [ ] 🤖 demo/run_demo.py + `make demo`.
 - [ ] ✅ Test on a clean clone / fresh venv.
-- [ ] 🧠 README: value prop above the fold; demo + coverage visuals; quickstart; honest comparison (PRD §6); OWASP + ATLAS badges; contribution pointer.
-- [ ] 🤖 Example generated SPL + KQL snippets in the README.
+- [x] 🧠 README: value prop above the fold; demo + coverage visuals; quickstart; honest comparison (PRD §6); OWASP + ATLAS badges; contribution pointer.
+- [x] 🤖 Example generated SPL + KQL snippets in the README (system-prompt extraction, SPL + KQL side by side from `out/`).
 
 ## Phase 6 — Community readiness
 Goal: forkable, contributable, trustworthy.
