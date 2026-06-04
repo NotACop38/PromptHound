@@ -1,0 +1,2 @@
+PromptHoundAuditLog_CL
+| where output_rendered_unsanitized =~ true and (output_sink in~ ("sql_exec", "shell_exec", "html_render", "code_eval"))

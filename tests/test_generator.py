@@ -84,6 +84,10 @@ def test_generator_rule_backed_specs_point_to_shipped_rules() -> None:
     assert shipped == {
         "system_prompt_extraction/extract_system_prompt_markers.yml",
         "dos_cost_abuse/token_cost_spike_per_principal.yml",
+        "dos_cost_abuse/oversized_max_tokens.yml",
+        "dos_cost_abuse/request_rate_burst_per_principal.yml",
+        "dos_cost_abuse/repeated_length_finish_loops.yml",
+        "insecure_output/unsanitized_output_to_sink.yml",
     }
     for spec in SPECS:
         if spec.rule:

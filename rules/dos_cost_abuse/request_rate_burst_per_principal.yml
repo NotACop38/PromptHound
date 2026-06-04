@@ -1,0 +1,69 @@
+# PromptHound — DoS / cost-abuse (denial-of-wallet) detection.
+# PRD §11 rule #7 (LLM10 Unbounded Consumption). A Sigma *correlation* rule:
+# windowed per-principal request-rate burst, distinct from the token/cost-volume
+# spike (token_cost_spike_per_principal.yml). This one ignores token size — pure
+# request frequency from one identity is the signal (Sourcegraph-style API-limit
+# DoS, PRD §11 anchors).
+#
+# Tier 1 (PRD §10.1/§10.2): keys only on always-on operational metadata
+# (event.action) + identity (user.id). No prompt/response content required
+# (PRD §8 P4). See docs/authoring.md for the KQL aggregation workaround (the
+# Kusto backend does not emit Sigma correlations).
+#
+# Sample spec: generator/samples/request_rate_burst_per_principal.{positive,negative}.json
+---
+title: LLM completion request (rate-burst building block)
+name: rate_any_completion
+id: 289509d2-7a37-43fa-b0ac-b7a3e19dd113
+status: experimental
+description: >
+  A single LLM completion request. On its own this is ordinary traffic; the
+  correlation rule below turns a high-frequency run of these from one principal
+  into a request-rate-burst alert.
+logsource:
+  product: llm_gateway
+detection:
+  completion:
+    event.action:
+      - chat
+      - text_completion
+  condition: completion
+---
+title: Request-rate burst per principal (denial of service / wallet)
+id: c399339c-8147-4dff-92c6-16588e7c92c7
+status: experimental
+description: >
+  Detects a single principal (user.id) issuing an abnormally high number of LLM
+  completion requests within a short window — the log signature of model/endpoint
+  denial-of-service and automated cost-abuse driven by request *frequency* rather
+  than per-request token size. Aggregation is per-principal over a sliding
+  1-minute window; the alert is the request count crossing a threshold, a Tier-1
+  proxy for a runaway client or abusive script. See docs/authoring.md for the KQL
+  aggregation workaround (the Kusto backend does not emit Sigma correlations).
+references:
+  - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
+  - https://atlas.mitre.org/techniques/AML.T0029
+  - https://atlas.mitre.org/techniques/AML.T0034
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm10
+  - attack.atlas.aml.t0029
+  - attack.atlas.aml.t0034
+  - prompthound.tier.t1
+correlation:
+  type: event_count
+  rules:
+    - rate_any_completion
+  group-by:
+    - user.id
+  timespan: 1m
+  condition:
+    gte: 20
+falsepositives:
+  - Legitimate high-throughput service principals (chat fan-out, evaluation
+    harnesses, synthetic monitoring) hitting the gateway from one identity —
+    scope by user.roles / app.env or raise the threshold for known clients.
+  - Retrying clients in a transient-error storm; correlate with error.type.
+  - Load tests against staging/dev (filter app.env).
+level: medium
