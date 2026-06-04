@@ -75,8 +75,15 @@ def schema_validate() -> bool:
 
     ok = True
     for path in samples:
-        event = json.loads(path.read_text(encoding="utf-8"))
-        errors = validate_event(event, schema)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        # A sample file holds either a single event (selection-match rules) or a
+        # JSON array of events (correlation rules, whose positive is a burst).
+        events = payload if isinstance(payload, list) else [payload]
+        errors = [
+            f"[{i}] {error}"
+            for i, event in enumerate(events)
+            for error in validate_event(event, schema)
+        ]
         rel = path.relative_to(REPO_ROOT)
         if errors:
             ok = False

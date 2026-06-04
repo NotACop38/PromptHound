@@ -40,6 +40,13 @@ keeps the harness faithful to the conversion source of truth.
   `field: null` matches an absent *or* explicitly-null field). It raises on
   unsupported nodes rather than passing silently, so it fails loudly when a new
   rule outgrows it.
+- **Correlation rules** (e.g. `dos_cost_abuse/token_cost_spike_per_principal.yml`)
+  add windowed aggregation the single-event matcher can't express. Their
+  fire/silence tests reuse `rule_matches` to filter the *base* rule per event,
+  then group by the correlation's `group-by` field over its `timespan` and apply
+  the threshold (`tests/test_token_cost_spike.py`). Positive/negative samples are
+  therefore JSON **arrays** of events (a burst vs. normal usage), not a single
+  event.
 
 ## Checklist for a new rule (mirrors CHECKLIST "Cross-cutting")
 
@@ -96,6 +103,22 @@ changes Splunk and Sentinel together.
 When you reference a schema field in a rule's `detection:`, use the **dotted
 schema name** (e.g. `guardrail.input.categories`); the pipeline handles the
 flattening.
+
+### Correlation rules and the KQL aggregation gap
+
+Sigma **correlation** rules (per-principal counts/sums over a window) convert
+unevenly across backends, so `convert_rule` treats them specially:
+
+- **SPL** — the Splunk backend emits the full `event_count` correlation
+  (`… | bin _time | stats count … | search count >= N`). `value_sum` is **not**
+  supported by the Splunk backend, so author cost/token-spike rules as an
+  `event_count` over a base rule (one high-token request) rather than a literal
+  token sum.
+- **KQL** — the Kusto backend (1.0.x) emits **no** correlations at all. So for a
+  correlation rule the generated `.kql` is the **base rule's** `where` clause
+  plus the windowed aggregation appended as a `// summarize …` comment the
+  analyst un-comments. SPL is required for every rule; KQL aggregation is
+  best-effort + documented (this one-liner) until the backend gains support.
 
 ### Regenerating and snapshotting `out/`
 
