@@ -84,7 +84,8 @@ Exit: a stranger can understand the line, add a rule, and get it merged via CI.
 - [ ] 🤖 CONTRIBUTING.md (authoring standard + P1–P4).
 - [ ] 🤖 docs/authoring.md ("add a rule in 10 minutes").
 - [ ] 🤖 Issue/PR templates incl. a "new rule" template enforcing metadata + samples.
-- [ ] 🤖 SECURITY.md + docs/THREAT-MODEL.md (non-goals).
+- [x] 🤖 SECURITY.md + docs/THREAT-MODEL.md (non-goals).
+- [x] 🤖 Security stage enforced locally: `scripts/ci.py` security stage (pip-audit + bandit + secrets scan), runnable alone via `--only security`; P1/P2 invariant tests (`tests/test_invariants.py`).
 - [ ] 🧠 [OPEN] D8 — deployable packaging fast-follow.
 - [ ] 🧠 Pre-launch: name/branding, badges, repo description, topics.
 
