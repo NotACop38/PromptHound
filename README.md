@@ -37,12 +37,21 @@ Inspired by and complementary to Splunkbase's *MITRE ATLAS AI Threat Detection f
 # Python 3.11+
 python -m pip install -r requirements.lock   # pinned runtime deps (PRD §13)
 
+make demo    # the one-command wow (python demo/run_demo.py --seed 0)
 make ci      # run the full local check sequence (python scripts/ci.py)
 make test    # just the tests
 make fmt     # auto-format + lint-fix
 ```
 
 There is **no hosted CI** — the local runner (`scripts/ci.py`) is the gate, run on demand.
+
+## See it in action
+
+`make demo` is the 10-second hook. Entirely offline, it **generates** synthetic telemetry (benign traffic + a should-alert / should-not-alert signature per rule), **evaluates** the whole Sigma rule pack against it with the backend-agnostic offline matcher, prints a hits table (rule · OWASP · ATLAS · tier · #hits), and **builds** the OWASP × ATLAS coverage map — then tells you where to open it. No live LLM is ever contacted (PRD §8, P1–P2), and a given `--seed` is byte-reproducible.
+
+![PromptHound demo output](docs/assets/demo.svg)
+
+> Full captured output: [`docs/assets/demo_output.txt`](docs/assets/demo_output.txt). The visual coverage map lands at `out/coverage/coverage.html` (plus a Markdown grid and an [ATLAS Navigator](https://mitre-atlas.github.io/atlas-navigator/) layer).
 
 ## Layout
 
