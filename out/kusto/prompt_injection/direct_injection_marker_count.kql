@@ -1,0 +1,2 @@
+PromptHoundAuditLog_CL
+| where content_input_injection_markers >= 2

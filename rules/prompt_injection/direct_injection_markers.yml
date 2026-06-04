@@ -1,0 +1,71 @@
+# PromptHound — Direct prompt-injection detection.
+# PRD §11 rule #1 (LLM01 Prompt Injection / ATLAS AML.T0051.000 Direct).
+# Tier-2 (content inspection) + derived marker (PRD §10.8): fires when an input
+# message carries a recognizable instruction-override marker phrase AND the
+# gateway's derived injection-marker counter is non-zero.
+#
+# Requiring both a content marker and the derived counter keeps this a single
+# selection-match (no aggregation) while raising fidelity — a passing mention of
+# the word "instructions" will not, on its own, fire.
+#
+# P1 (PRD §8): the marker phrases are generalizable log *signatures* of
+# instruction-override intent, not a curated payload set an attacker can lift
+# and run. The privacy-preserving Tier-1 sibling (direct_injection_marker_count.yml)
+# runs the same intent as a derived-only boolean (PRD D4 bridge).
+#
+# Sample spec: generator/samples/direct_injection_markers.{positive,negative}.json
+title: Direct Prompt-Injection Instruction-Override Markers in LLM Input
+id: cc0cd2b6-0ef0-4782-99aa-a84c006b32c6
+status: experimental
+description: |
+  Detects a direct prompt-injection attempt: input text instructing the model to
+  override, ignore, or replace its own (system) instructions. This is the core of
+  OWASP LLM01:2025 (Prompt Injection) and ATLAS AML.T0051.000 (LLM Prompt
+  Injection: Direct), where the adversary supplies the malicious instruction
+  directly in their own prompt (as opposed to via retrieved content — see the
+  indirect rule).
+
+  Tier-2 (+D): fires when an input message carries a recognizable
+  instruction-override marker phrase AND the derived content.input.injection_markers
+  counter is non-zero. The derived counter raises fidelity so a benign mention of
+  "instructions" does not fire on its own.
+references:
+  - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+  - https://atlas.mitre.org/techniques/AML.T0051.000
+  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm01
+  - attack.atlas.aml.t0051.000
+  - prompthound.tier.t2
+logsource:
+  product: llm_gateway
+  # Audit-log schema: docs/PRD.md §10 (LLM Gateway / Agent Audit Log).
+detection:
+  markers:
+    # Derived Tier-1 marker (PRD §10.8): count of injection/extraction intent
+    # markers the gateway scored in the input. Non-zero => some injection signal.
+    content.input.injection_markers|gte: 1
+  override_phrases:
+    # Tier-2 content inspection: recognizable instruction-override marker phrases.
+    # Generalizable signatures of injection intent, not exploit payloads (P1).
+    gen_ai.input.messages|contains:
+      - 'ignore previous instructions'
+      - 'ignore all previous instructions'
+      - 'ignore the above instructions'
+      - 'disregard previous instructions'
+      - 'disregard all prior instructions'
+      - 'forget your previous instructions'
+      - 'override your instructions'
+      - 'new instructions:'
+      - 'from now on you will'
+      - 'you must ignore'
+  condition: markers and override_phrases
+falsepositives:
+  - Developers, red-teamers, or security researchers exercising their own
+    application's injection defenses during authorized testing.
+  - Users quoting or discussing prompt-injection phrasing in good faith (e.g. a
+    support ticket about "the bot ignored my previous instructions") while the
+    gateway's marker heuristic over-counts (tune the injection_markers threshold).
+level: high

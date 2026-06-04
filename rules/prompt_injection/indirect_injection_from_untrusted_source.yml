@@ -1,0 +1,77 @@
+# PromptHound — Indirect prompt-injection detection.
+# PRD §11 rule #2 (LLM01 Prompt Injection / ATLAS AML.T0051.001 Indirect).
+# Tier-2 content inspection + retrieval metadata: fires when a retrieval-augmented
+# turn pulls content from an *untrusted* source type (web / email / file / ticket)
+# AND that turn carries instruction-override marker phrases AND the derived
+# injection-marker counter is non-zero.
+#
+# The distinguishing feature of *indirect* injection (vs direct) is that the
+# malicious instruction arrives through retrieved content folded into the model's
+# context — not from the user's own message. Keying on untrusted rag.source.types
+# (PRD §10.4) alongside the content/derived markers is what separates the two.
+#
+# Real-world anchor: EchoLeak / CVE-2025-32711 (M365 Copilot indirect-injection
+# data exfiltration via untrusted email content) — PRD §11.
+#
+# P1 (PRD §8): marker phrases are generalizable log signatures, not payloads.
+#
+# Sample spec: generator/samples/indirect_injection_from_untrusted_source.{positive,negative}.json
+title: Indirect Prompt-Injection Markers from Untrusted Retrieved Content
+id: fac11223-21c0-48f6-afcb-bdc6a7ac630f
+status: experimental
+description: |
+  Detects indirect prompt injection: instruction-override markers appearing in a
+  retrieval-augmented turn whose retrieved content came from an untrusted source
+  type (web, email, file, ticket). This is OWASP LLM01:2025 (Prompt Injection)
+  and ATLAS AML.T0051.001 (LLM Prompt Injection: Indirect), where an adversary
+  plants instructions in content the application later retrieves and feeds to the
+  model — the M365 Copilot EchoLeak class of attack (CVE-2025-32711).
+
+  Tier-2 + retrieval: requires (1) an untrusted rag.source.types entry, (2) a
+  recognizable instruction-override marker phrase in the assembled input, and
+  (3) a non-zero derived injection-marker counter. Trusted-source retrieval (e.g.
+  an internal `db`) with no markers stays silent.
+references:
+  - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+  - https://atlas.mitre.org/techniques/AML.T0051.001
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-32711
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm01
+  - attack.atlas.aml.t0051.001
+  - prompthound.tier.t2
+logsource:
+  product: llm_gateway
+  # Audit-log schema: docs/PRD.md §10.4 (Retrieval / RAG) + §10.7/§10.8.
+detection:
+  untrusted_source:
+    # Retrieval metadata (PRD §10.4): the turn pulled content from a source type
+    # outside the trust boundary. These are the classic indirect-injection vectors.
+    rag.source.types:
+      - web
+      - email
+      - file
+      - ticket
+  injected_instructions:
+    # Tier-2 content inspection: instruction-override markers in the assembled
+    # input (the retrieved content folded into context). Signatures, not payloads.
+    gen_ai.input.messages|contains:
+      - 'ignore previous instructions'
+      - 'ignore all previous instructions'
+      - 'disregard previous instructions'
+      - 'new instructions:'
+      - 'from now on you will'
+      - 'forward the conversation'
+      - 'exfiltrate'
+      - 'send the contents to'
+  markers:
+    # Derived Tier-1 marker (PRD §10.8): raises fidelity on the retrieved content.
+    content.input.injection_markers|gte: 1
+  condition: untrusted_source and injected_instructions and markers
+falsepositives:
+  - Retrieved documents that legitimately quote or document prompt-injection
+    phrasing (security advisories, this very rule pack, abuse-report tickets).
+  - Trusted-but-misclassified sources tagged as `web`/`file` by an over-broad
+    rag.source.types labeller (fix the source labelling upstream).
+level: high
