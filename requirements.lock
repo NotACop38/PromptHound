@@ -9,14 +9,11 @@
 # regeneration (PRD §17: pySigma/backend version drift; D5: pySigma 1.0.0
 # introduced breaking factory-pattern pipelines).
 #
-# Decision — schema validation (PRD §13, "(eval) pydantic"): use `jsonschema`
-#   for the schema-validate test/CI stage, NOT pydantic. It is pinned below so
-#   the documented Quickstart path (`pip install -r requirements.lock` then
-#   `make test`/`make ci`) can run the schema-validity test; it is also declared
-#   in pyproject `[project.optional-dependencies].dev`. Rationale: events are
-#   plain JSON validated against schema/llm_audit_log.schema.json; jsonschema is
-#   the lean, direct fit and the runtime `prompthound` package does not import
-#   it. pydantic remains deferred unless runtime model validation is needed.
+# Decision — pydantic (PRD §13, "(eval) pydantic"): DEFERRED, not included.
+#   Rationale: keep dependencies lean. Audit-log events are plain JSON and the
+#   schema-validate CI stage is a stdlib placeholder for now. If/when runtime
+#   model validation is needed we will choose between a stdlib check,
+#   `jsonschema`, or `pydantic` and pin it here at that time. No code imports it.
 #
 # Not a dependency: `pysigma-backend-sentinel` does NOT exist (PRD D5).
 # Sentinel KQL is produced by `pysigma-backend-kusto` (target `kusto`,
@@ -29,10 +26,8 @@ pySigma-backend-kusto==1.0.1
 sigma-cli==3.0.2
 Jinja2==3.1.6
 PyYAML==6.0.3
-jsonschema==4.26.0
 
 # --- Transitive dependencies (pinned for reproducibility) ---
-attrs==26.1.0
 certifi==2026.5.20
 charset-normalizer==3.4.7
 click==8.4.1
@@ -40,14 +35,11 @@ colorama==0.4.6
 diskcache==5.6.3
 diskcache-stubs==5.6.3.6.20240818
 idna==3.18
-jsonschema-specifications==2025.9.1
 MarkupSafe==3.0.3
 packaging==26.2
 prettytable==3.17.0
 pyparsing==3.3.2
-referencing==0.37.0
 requests==2.34.2
-rpds-py==2026.5.1
 types-PyYAML==6.0.12.20260518
 typing_extensions==4.15.0
 urllib3==2.7.0

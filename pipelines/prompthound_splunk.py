@@ -1,33 +1,59 @@
-"""PromptHound -> Splunk pySigma processing pipeline (PRD §12, decision D5).
+"""PromptHound → Splunk pySigma processing pipeline (PRD §12, decision D5).
 
 Maps the PromptHound audit-log schema (PRD §10, ``logsource: product:
-llm_gateway``) onto Splunk and emits SPL via ``pysigma-backend-splunk`` (target
-``splunk``).
+llm_gateway``) onto flattened Splunk field names and lets ``pysigma-backend-
+splunk`` (target ``splunk``) emit SPL.
 
-Splunk's JSON sourcetypes auto-extract dotted field names (e.g.
-``content.input.injection_markers``), so the schema field names are already
-valid SPL fields and need no renaming. The pipeline therefore only scopes the
-search to the gateway sourcetype, which is what a deployable saved search wants.
+Two output formats are supported by the Splunk backend (PRD §12, D5):
+
+* ``default`` — plain SPL search strings.
+* ``savedsearches`` — the same SPL wrapped in a ``savedsearches.conf`` stanza.
+
+pySigma 1.0.0 moved pipelines to the *factory pattern*: a pipeline is a function
+returning a fresh :class:`ProcessingPipeline` rather than a module-level
+singleton (PRD §13, version discipline). ``prompthound_splunk_pipeline`` is that
+factory; ``splunk_backend`` wires it into a configured backend.
 """
 
 from __future__ import annotations
 
+from sigma.backends.splunk import SplunkBackend
+from sigma.processing.conditions import LogsourceCondition
 from sigma.processing.pipeline import ProcessingItem, ProcessingPipeline
-from sigma.processing.transformations import AddConditionTransformation
+from sigma.processing.transformations import FieldMappingTransformation
 
-# Splunk sourcetype the LLM gateway audit log is expected to land on.
-GATEWAY_SOURCETYPE = "llm:gateway:audit"
+from prompthound.fieldmap import FIELD_MAP
+
+#: Output formats exposed by the Splunk backend that we support (PRD D5).
+SUPPORTED_FORMATS = ("default", "savedsearches")
+
+# Priority only matters if this pipeline is merged with another via the plugin
+# resolver; we drive the Splunk backend with it standalone, so it is informational
+# (a low value keeps our field flattening first should it ever be composed).
+_PIPELINE_PRIORITY = 9
 
 
-def build_pipeline() -> ProcessingPipeline:
-    """Return the PromptHound->Splunk processing pipeline."""
+def prompthound_splunk_pipeline() -> ProcessingPipeline:
+    """Return a fresh PromptHound → Splunk processing pipeline (factory pattern)."""
+    # Typed to FieldMappingTransformation's parameter (dict is invariant, so a
+    # plain dict[str, str] won't satisfy dict[str | None, str | list[str]]).
+    mapping: dict[str | None, str | list[str]] = {k: v for k, v in FIELD_MAP.items()}
     return ProcessingPipeline(
-        name="PromptHound LLM gateway -> Splunk",
-        priority=20,
+        name="PromptHound LLM Gateway to Splunk",
+        priority=_PIPELINE_PRIORITY,
         items=[
             ProcessingItem(
-                identifier="prompthound_splunk_sourcetype",
-                transformation=AddConditionTransformation({"sourcetype": GATEWAY_SOURCETYPE}),
+                identifier="prompthound_splunk_field_mapping",
+                transformation=FieldMappingTransformation(mapping),
+                rule_conditions=[LogsourceCondition(product="llm_gateway")],
             ),
         ],
     )
+
+
+def splunk_backend() -> SplunkBackend:
+    """Return a Splunk backend (target ``splunk``) wired to the PromptHound pipeline."""
+    return SplunkBackend(processing_pipeline=prompthound_splunk_pipeline())
+
+
+__all__ = ["SUPPORTED_FORMATS", "prompthound_splunk_pipeline", "splunk_backend"]

@@ -66,9 +66,17 @@ def load_rule(path: str | Path) -> SigmaRule:
 
 
 def rule_matches(rule: SigmaRule, event: Event) -> bool:
-    """Return True if ``rule``'s detection logic fires on ``event``."""
-    condition = rule.detection.parsed_condition[0].parse()
-    return _eval(condition, event)
+    """Return True if ``rule``'s detection logic fires on ``event``.
+
+    A Sigma rule may carry multiple ``condition`` entries (a YAML list); Sigma
+    treats them as independent queries that are logically OR-ed, and pySigma
+    exposes them as multiple ``parsed_condition`` entries. We evaluate every one
+    so the offline result matches what the SIEM backends emit.
+    """
+    conditions = rule.detection.parsed_condition
+    if not conditions:
+        raise ValueError("rule has no parsed detection condition")
+    return any(_eval(condition.parse(), event) for condition in conditions)
 
 
 # --- condition tree evaluation -------------------------------------------------
@@ -92,7 +100,8 @@ def _eval(node: object, event: Event) -> bool:
 def _match_field(field: str, value: object, event: Event) -> bool:
     candidates = _field_candidates(event, field)
     if isinstance(value, SigmaNull):
-        return len(candidates) == 0
+        # Sigma ``field: null`` matches when the field is absent OR explicitly null.
+        return field not in event or any(cand is None for cand in candidates)
     return any(_match_value(value, cand) for cand in candidates)
 
 

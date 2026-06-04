@@ -2,8 +2,13 @@
 
 Phase 0 invariants (rule tree exists; an empty pack is fine) plus the Phase 1
 vertical slice for ``system_prompt_extraction`` (PRD §11): fire, silence,
-schema-validity, conversion snapshot, and metadata. The slice tests are
-parametrized over a small registry so adding a rule means adding one entry.
+conversion, and metadata. The slice tests are parametrized over a small registry
+so adding a rule means adding one entry.
+
+Two adjacent gates live in sibling modules and are not duplicated here:
+``test_schema.py`` validates every ``generator/samples/*.json`` against the
+audit-log schema, and the ``out/`` snapshot (written by ``scripts/release.py``,
+checked by ``scripts/ci.py``) is the byte-stable conversion record.
 """
 
 from __future__ import annotations
@@ -18,8 +23,6 @@ from prompthound.matcher import load_rule, rule_matches
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RULES_DIR = REPO_ROOT / "rules"
 SAMPLES_DIR = REPO_ROOT / "generator" / "samples"
-SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots"
-SCHEMA_PATH = REPO_ROOT / "schema" / "llm_audit_log.schema.json"
 
 # PRD §11 / §14 rule categories.
 RULE_CATEGORIES = [
@@ -81,16 +84,6 @@ def test_rule_silent_on_negative_sample(rule_rel: str, stem: str) -> None:
 
 
 @pytest.mark.parametrize(("rule_rel", "stem"), SLICE_RULES)
-def test_samples_validate_against_schema(rule_rel: str, stem: str) -> None:
-    import jsonschema
-
-    schema = json.loads(SCHEMA_PATH.read_text())
-    for kind in ("positive", "negative"):
-        sample = json.loads((SAMPLES_DIR / f"{stem}.{kind}.json").read_text())
-        jsonschema.validate(instance=sample, schema=schema)
-
-
-@pytest.mark.parametrize(("rule_rel", "stem"), SLICE_RULES)
 def test_rule_has_required_metadata(rule_rel: str, stem: str) -> None:
     rule = load_rule(_rule_path(rule_rel))
     tags = {str(t) for t in rule.tags}
@@ -103,20 +96,12 @@ def test_rule_has_required_metadata(rule_rel: str, stem: str) -> None:
 
 
 @pytest.mark.parametrize(("rule_rel", "stem"), SLICE_RULES)
-def test_conversion_snapshot_splunk(rule_rel: str, stem: str) -> None:
-    from pipelines.convert import convert_splunk
+def test_rule_converts_to_spl_and_kql(rule_rel: str, stem: str) -> None:
+    # The byte-stable record is the committed out/ snapshot; here we just assert
+    # the slice rule converts to non-empty SPL + KQL through the real toolchain.
+    from prompthound.convert import convert_rule
 
-    queries = convert_splunk([_rule_path(rule_rel)])
-    assert len(queries) == 1 and queries[0].strip(), "SPL must be non-empty"
-    expected = (SNAPSHOT_DIR / f"{stem}.splunk.spl").read_text().strip()
-    assert queries[0].strip() == expected, "SPL drifted from snapshot; review and re-bless"
-
-
-@pytest.mark.parametrize(("rule_rel", "stem"), SLICE_RULES)
-def test_conversion_snapshot_kusto(rule_rel: str, stem: str) -> None:
-    from pipelines.convert import convert_kusto
-
-    queries = convert_kusto([_rule_path(rule_rel)])
-    assert len(queries) == 1 and queries[0].strip(), "KQL must be non-empty"
-    expected = (SNAPSHOT_DIR / f"{stem}.kusto.kql").read_text().strip()
-    assert queries[0].strip() == expected, "KQL drifted from snapshot; review and re-bless"
+    result = convert_rule(_rule_path(rule_rel))
+    assert result.spl and all(q.strip() for q in result.spl), "SPL must be non-empty"
+    assert result.kql and all(q.strip() for q in result.kql), "KQL must be non-empty"
+    assert result.savedsearches.strip(), "savedsearches.conf must be non-empty"

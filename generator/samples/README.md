@@ -9,6 +9,11 @@ rule, the negative must stay silent.
 Naming: `<rule-stem>.positive.json` / `<rule-stem>.negative.json`, where the
 stem matches the rule file (e.g. `extract_system_prompt_markers`).
 
+A couple of standalone events (`benign_chat.json`,
+`system_prompt_extraction_attempt.json`) are the PRD §10.9 example events kept as
+schema/toolchain references; like every file here they must validate against the
+schema (`tests/test_schema.py` checks all `*.json` in this directory).
+
 ## Defensive posture — P1 (signatures, not payloads)
 
 These fixtures encode attack **log signatures as they appear in telemetry** —
