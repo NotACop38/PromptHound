@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prompthound"
+version = "0.1.0"
+description = "Open-source, defensive SIEM detection library for attacks against LLM apps and AI agents."
+readme = "README.md"
+requires-python = ">=3.11"
+# license: pending decision D7 (PRD §9). Recommended (not yet ratified):
+# Apache-2.0 for code, DRL 1.1 for detection content. See LICENSE.
+authors = [{ name = "PromptHound contributors" }]
+keywords = [
+  "siem",
+  "sigma",
+  "detection-engineering",
+  "llm-security",
+  "owasp-llm",
+  "mitre-atlas",
+  "splunk",
+  "sentinel",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Information Technology",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+]
+
+# Runtime dependencies (PRD §13). Exact versions are pinned in requirements.lock;
+# a bump there is a reviewed change with full SPL/KQL regeneration (PRD §17).
+# NOTE: there is deliberately NO `pysigma-backend-sentinel` — it does not exist
+# (PRD D5); Sentinel KQL comes from `pysigma-backend-kusto`.
+dependencies = [
+  "pysigma>=1.0.0",
+  "pysigma-backend-splunk>=1.0.0",
+  "pysigma-backend-kusto>=1.0.0",
+  "jinja2>=3.1",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+cli = ["sigma-cli>=1.0.0"]
+dev = ["ruff>=0.5", "mypy>=1.8", "pytest>=8.0"]
+
+[project.urls]
+Documentation = "https://github.com/notacop38/prompthound/blob/main/docs/PRD.md"
+Source = "https://github.com/notacop38/prompthound"
+
+# Only the importable library package is distributed; rules/, generator/, etc.
+# are operational content directories (PRD §14), not part of the wheel.
+[tool.setuptools]
+packages = ["prompthound"]
+
+[tool.setuptools.package-data]
+prompthound = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["."]

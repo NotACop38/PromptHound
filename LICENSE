@@ -1,0 +1,16 @@
+PromptHound — LICENSE (PENDING)
+
+Licensing is an OPEN decision (see docs/PRD.md §9, decision D7) and has not yet
+been finalized.
+
+Recommended direction (NOT yet ratified):
+  - Source code:        Apache License 2.0
+  - Detection content:  Detection Rule License (DRL) 1.1
+
+Until D7 is decided and this file is replaced with the full, ratified license
+text(s), no open-source license is granted: all rights are reserved by the
+PromptHound contributors. Please do not redistribute under an assumed license.
+
+References:
+  - docs/PRD.md       §9  (decision D7)
+  - docs/CHECKLIST.md     (Phase 0 and Phase 6 license items)
