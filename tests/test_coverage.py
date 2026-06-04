@@ -8,6 +8,7 @@ is well-formed, and that the metadata gate rejects missing / unknown tags.
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -20,6 +21,7 @@ from coverage.build_coverage import (
     coverage_html,
     coverage_markdown,
     generate_artifacts,
+    generate_presentation_assets,
     load_rule_meta,
     load_rules,
     parse_tag,
@@ -46,6 +48,21 @@ def test_coverage_atlas_layer_is_valid_navigator_json() -> None:
     for tech in layer["techniques"]:
         assert tech["techniqueID"].startswith("AML.T")
         assert tech["score"] >= 1
+
+
+def test_coverage_svg_asset_builds_and_is_wellformed() -> None:
+    # The README's coverage image is generated from the same metadata (so it
+    # cannot drift) and must be well-formed SVG GitHub can render inline.
+    assets, errors = generate_presentation_assets()
+    assert errors == [], f"coverage svg build reported tag errors: {errors}"
+    names = {p.name for p in assets}
+    assert names == {"coverage.svg"}
+    svg = next(iter(assets.values()))
+    root = ET.fromstring(svg)  # raises on malformed XML
+    assert root.tag.endswith("svg")
+    assert "PromptHound" in svg and "OWASP LLM Top 10" in svg
+    for oid in OWASP_LLM:
+        assert oid in svg, f"{oid} missing from coverage.svg"
 
 
 def test_coverage_markdown_and_html_non_empty() -> None:

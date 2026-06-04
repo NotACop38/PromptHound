@@ -13,6 +13,9 @@ off every Sigma rule under ``rules/`` and renders three artifacts into
     breakdown;
   * ``coverage.md`` -- the same OWASP grid + ATLAS + Tier tables as Markdown.
 
+It also renders ``docs/assets/coverage.svg`` (:func:`generate_presentation_assets`)
+-- a self-contained dark-palette card embedded in the README, from the same model.
+
 Because the map is derived purely from rule tags it cannot drift out of sync: a
 rule with a missing required tag (OWASP + Tier + at least one technique mapping)
 or an *unknown* tag the catalog below does not recognise fails the build, so a
@@ -40,6 +43,9 @@ from jinja2 import Environment
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RULES_DIR = REPO_ROOT / "rules"
 OUT_DIR = REPO_ROOT / "out" / "coverage"
+# Presentation render embedded in the README; lives beside docs/assets/demo.svg
+# and is derived from the same metadata model so it cannot drift (PRD §5, §17).
+DOCS_ASSETS_DIR = REPO_ROOT / "docs" / "assets"
 
 # --- Tag catalogs (the canonical vocabulary; unknown tags fail the build) ------
 #
@@ -499,11 +505,164 @@ def coverage_html(model: dict[str, Any]) -> str:
     return env.from_string(_HTML_TEMPLATE).render(m=model).rstrip("\n") + "\n"
 
 
+# --- SVG render (embeddable in the README; never hand-edited) ------------------
+#
+# A self-contained, dark-palette (Nord, matching docs/assets/demo.svg) render of
+# the *same* OWASP x ATLAS x Tier model the HTML/Markdown maps use, so the image
+# the README shows is derived from rule metadata too and cannot go stale. Pure
+# string building (presentation attributes only, no <style>/<script>) so GitHub
+# renders it inline.
+
+_NORD = {
+    "bg": "#2e3440",
+    "panel": "#3b4252",
+    "panel_off": "#353b48",
+    "track": "#2b303b",
+    "bright": "#eceff4",
+    "ink": "#d8dee9",
+    "muted": "#8a93a3",
+    "green": "#a3be8c",
+    "blue": "#88c0d0",
+    "blue_dim": "#5e81ac",
+    "yellow": "#ebcb8b",
+    "rule": "#434c5e",
+}
+
+
+def _svg_escape(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _wrap(text: str, max_chars: int, max_lines: int) -> list[str]:
+    """Greedy word-wrap to at most ``max_lines`` lines of about ``max_chars``."""
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) <= max_chars or not current:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+        if len(lines) == max_lines:
+            current = ""
+            break
+    if current and len(lines) < max_lines:
+        lines.append(current)
+    return lines or [""]
+
+
+def coverage_svg(model: dict[str, Any]) -> str:
+    """Render the coverage model as a self-contained, embeddable SVG card."""
+    width, pad = 960, 28
+    inner = width - 2 * pad
+    body: list[str] = []
+
+    def txt(
+        x: float, y: float, s: str, fill: str, size: float = 13, weight: str = "normal",
+        mono: bool = False,
+    ) -> None:
+        fam = ' font-family="SFMono-Regular,Consolas,Menlo,monospace"' if mono else ""
+        body.append(
+            f'<text x="{x}" y="{y}" fill="{fill}" font-size="{size}" '
+            f'font-weight="{weight}"{fam} xml:space="preserve">{_svg_escape(s)}</text>'
+        )
+
+    def box(x: float, y: float, w: float, h: float, fill: str, rx: float = 8) -> None:
+        body.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}" fill="{fill}"/>')
+
+    # Header.
+    y = pad + 26
+    txt(pad, y, "PromptHound — coverage map", _NORD["yellow"], size=21, weight="700")
+    y += 22
+    txt(
+        pad, y,
+        f"auto-generated from rule metadata · {model['rule_count']} rules · "
+        f"OWASP LLM Top 10 {model['owasp_covered']}/{model['owasp_total']} covered · "
+        f"ATLAS {len(model['atlas'])} techniques/tactics",
+        _NORD["muted"], size=12,
+    )
+    y += 12
+    box(pad, y, inner, 1, _NORD["rule"], rx=0)
+
+    # OWASP LLM Top 10 grid (5 x 2).
+    y += 26
+    txt(pad, y, "OWASP LLM Top 10 (2025)", _NORD["ink"], size=13, weight="700")
+    y += 14
+    cols, gap, ch = 5, 12, 82
+    cw = (inner - gap * (cols - 1)) // cols
+    for i, e in enumerate(model["owasp"]):
+        row, col = divmod(i, cols)
+        cx = pad + col * (cw + gap)
+        cy = y + row * (ch + gap)
+        on = e["covered"]
+        box(cx, cy, cw, ch, _NORD["panel"] if on else _NORD["panel_off"])
+        box(cx, cy, 4, ch, _NORD["green"] if on else _NORD["muted"], rx=2)
+        txt(cx + 13, cy + 23, e["id"], _NORD["bright"] if on else _NORD["muted"],
+            size=14, weight="700")
+        for j, line in enumerate(_wrap(e["name"], 21, 2)):
+            txt(cx + 13, cy + 42 + j * 13, line, _NORD["ink"] if on else _NORD["muted"], size=10.5)
+        label = (f"{e['count']} rule" + ("s" if e["count"] != 1 else "")) if on else "no coverage"
+        txt(cx + 13, cy + ch - 12, label, _NORD["green"] if on else _NORD["muted"],
+            size=11, weight="700" if on else "normal")
+    y += 2 * ch + gap + 30
+
+    # MITRE ATLAS technique/tactic bars.
+    txt(pad, y, "MITRE ATLAS (v5.1.0)", _NORD["ink"], size=13, weight="700")
+    y += 16
+    name_x, bar_x = pad + 104, pad + 372
+    bar_w = inner - 36 - (bar_x - pad)  # leave room for the count label
+    max_count = max((e["count"] for e in model["atlas"]), default=1)
+    for e in model["atlas"]:
+        is_tactic = e["kind"] == "tactic"
+        txt(pad, y + 12, e["id"], _NORD["blue"], size=12, mono=True)
+        name = _wrap(e["name"], 38, 1)[0] + ("  (tactic)" if is_tactic else "")
+        txt(name_x, y + 12, name, _NORD["muted"], size=11)
+        box(bar_x, y + 2, bar_w, 13, _NORD["track"], rx=6)
+        fill_w = max(6, round(bar_w * e["count"] / max_count))
+        box(bar_x, y + 2, fill_w, 13, _NORD["blue_dim"] if is_tactic else _NORD["blue"], rx=6)
+        txt(bar_x + fill_w + 8, y + 12, str(e["count"]), _NORD["ink"], size=11, weight="700")
+        y += 23
+
+    # Detection-tier bars (Tier 1 / Tier 2).
+    y += 12
+    txt(pad, y, "Detection tiers", _NORD["ink"], size=13, weight="700")
+    y += 16
+    tier_names = {
+        "T1": "T1 · operational / always-on",
+        "T2": "T2 · content inspection / opt-in",
+    }
+    tier_max = model["rule_count"] or 1
+    for e in model["tiers"]:
+        txt(pad, y + 12, tier_names.get(e["id"], e["id"]), _NORD["ink"], size=11)
+        box(bar_x, y + 2, bar_w, 13, _NORD["track"], rx=6)
+        fill_w = max(6, round(bar_w * e["count"] / tier_max))
+        box(bar_x, y + 2, fill_w, 13, _NORD["green"], rx=6)
+        txt(bar_x + fill_w + 8, y + 12, str(e["count"]), _NORD["ink"], size=11, weight="700")
+        y += 25
+
+    # Footer.
+    y += 18
+    txt(pad, y, "Never hand-edited — built from rule tags by coverage/build_coverage.py.",
+        _NORD["muted"], size=10.5)
+    height = y + pad - 4
+
+    header = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" '
+        'font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,'
+        'sans-serif">\n'
+        f'<rect width="{width}" height="{height}" rx="14" fill="{_NORD["bg"]}"/>\n'
+    )
+    return header + "\n".join(body) + "\n</svg>\n"
+
+
 # --- Public API ----------------------------------------------------------------
 
 
-def generate_artifacts() -> tuple[dict[Path, str], list[str]]:
-    """Build the coverage artifacts in memory. Returns ``(artifacts, errors)``.
+def _model_or_errors() -> tuple[dict[str, Any] | None, list[str]]:
+    """Load the rule pack and build the coverage model, or report tag errors.
 
     A non-empty ``errors`` list (missing/unknown tags, no rules, parse failures)
     means the caller must NOT write -- the map would be stale or wrong.
@@ -511,8 +670,15 @@ def generate_artifacts() -> tuple[dict[Path, str], list[str]]:
     errors: list[str] = []
     rules = load_rules(errors)
     if errors:
+        return None, errors
+    return build_model(rules), errors
+
+
+def generate_artifacts() -> tuple[dict[Path, str], list[str]]:
+    """Build the ``out/coverage/`` artifacts in memory. Returns ``(artifacts, errors)``."""
+    model, errors = _model_or_errors()
+    if model is None:
         return {}, errors
-    model = build_model(rules)
     artifacts = {
         OUT_DIR / "atlas_navigator_layer.json": atlas_navigator_layer(model),
         OUT_DIR / "coverage.html": coverage_html(model),
@@ -521,23 +687,41 @@ def generate_artifacts() -> tuple[dict[Path, str], list[str]]:
     return artifacts, errors
 
 
+def generate_presentation_assets() -> tuple[dict[Path, str], list[str]]:
+    """Build the README coverage render (``docs/assets/coverage.svg``).
+
+    Same metadata-derived model as :func:`generate_artifacts`, kept separate so
+    the README image isn't part of the demo's ``out/coverage/`` write loop but is
+    still regenerated (and its tags gated) by the local CI coverage stage.
+    """
+    model, errors = _model_or_errors()
+    if model is None:
+        return {}, errors
+    return {DOCS_ASSETS_DIR / "coverage.svg": coverage_svg(model)}, errors
+
+
 def write_artifacts(artifacts: dict[Path, str]) -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
     for path, content in sorted(artifacts.items()):
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
 
 def main() -> int:
     artifacts, errors = generate_artifacts()
+    assets, asset_errors = generate_presentation_assets()
+    errors = errors or asset_errors
     if errors:
         for error in errors:
             print(f"  ERROR  {error}")
         print(f"\ncoverage build failed: {len(errors)} problem(s) -- fix the tags above.")
         return 1
     write_artifacts(artifacts)
+    write_artifacts(assets)
     for path in sorted(artifacts):
         print(f"  wrote  out/coverage/{path.name}")
-    print(f"\nbuilt {len(artifacts)} coverage artifact(s) into {OUT_DIR}")
+    for path in sorted(assets):
+        print(f"  wrote  docs/assets/{path.name}")
+    print(f"\nbuilt {len(artifacts) + len(assets)} coverage artifact(s)")
     return 0
 
 
