@@ -100,8 +100,13 @@ def test_sample_files_on_disk_validate() -> None:
     sample_files = sorted(SAMPLES_DIR.glob("*.json"))
     assert sample_files, "expected at least one sample event under generator/samples/"
     for path in sample_files:
-        event = json.loads(path.read_text(encoding="utf-8"))
-        assert validate_event(event, schema) == [], f"{path.name} failed schema validation"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        # A sample file holds either a single event (selection-match rules) or a
+        # JSON array of events (correlation rules, where the positive is a burst).
+        events = payload if isinstance(payload, list) else [payload]
+        assert events, f"{path.name} is empty"
+        for i, event in enumerate(events):
+            assert validate_event(event, schema) == [], f"{path.name}[{i}] failed schema validation"
 
 
 def test_missing_required_field_fails() -> None:

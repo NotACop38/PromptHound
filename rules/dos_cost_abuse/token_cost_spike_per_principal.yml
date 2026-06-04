@@ -1,0 +1,74 @@
+# PromptHound — DoS / cost-abuse (denial-of-wallet) detection.
+# PRD §11 rule #7 · second vertical slice (1b): a Sigma *correlation* rule that
+# exercises windowed aggregation once before the rule pack scales (CHECKLIST 1b).
+#
+# This file is a two-document Sigma collection:
+#   1) a base rule that matches a single high-token LLM completion, and
+#   2) a correlation rule that counts those completions per principal in a
+#      sliding window and fires on a burst (the cost spike / denial-of-wallet
+#      signal).
+#
+# Tier 1 (PRD §10.2): keys only on always-on operational metrics
+# (gen_ai.usage.total_tokens, cost.usd) + identity (user.id). No prompt/response
+# content is required — privacy-friendly by design (PRD §8 P4).
+#
+# Sample spec: generator/samples/token_cost_spike_per_principal.json
+---
+title: High-token LLM completion request
+name: dow_high_token_request
+id: 767893f6-6e79-4169-aff4-ad7df990ea8e
+status: experimental
+description: >
+  A single LLM completion whose total token usage is large enough to be a
+  building block of a denial-of-wallet burst. On its own this is unremarkable;
+  the correlation rule below turns a sustained run of these from one principal
+  into an alert.
+logsource:
+  product: llm_gateway
+detection:
+  completion:
+    event.action:
+      - chat
+      - text_completion
+  high_tokens:
+    gen_ai.usage.total_tokens|gte: 8000
+  condition: completion and high_tokens
+---
+title: Token/cost spike per principal (denial of wallet)
+id: b924da29-decc-44bc-9b56-2bdf66b4fafc
+status: experimental
+description: >
+  Detects a single principal (user.id) issuing a burst of high-token LLM
+  completions within a short window — the log signature of model/endpoint
+  denial-of-service and cost-abuse (denial-of-wallet). Aggregation is
+  per-principal over a sliding 5-minute window; the alert is the count of
+  high-token completions crossing a threshold, a Tier-1 proxy for a runaway
+  token/cost spike. See docs/authoring.md for the KQL aggregation workaround
+  (the Kusto backend does not emit Sigma correlations).
+references:
+  - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
+  - https://atlas.mitre.org/techniques/AML.T0034
+  - https://atlas.mitre.org/techniques/AML.T0029
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm10
+  - attack.atlas.aml.t0034
+  - attack.atlas.aml.t0029
+  - prompthound.tier.t1
+correlation:
+  type: event_count
+  rules:
+    - dow_high_token_request
+  group-by:
+    - user.id
+  timespan: 5m
+  condition:
+    gte: 10
+falsepositives:
+  - Legitimate batch or backfill jobs running under a single service principal
+    (scope by user.roles / app.env, or raise the threshold for known batch ids).
+  - Long-context summarization or RAG workloads that legitimately use large
+    prompts at sustained rates.
+  - Load tests and synthetic monitoring hitting the gateway from one identity.
+level: medium

@@ -32,10 +32,10 @@ Exit: slice rule converts to SPL + KQL; positive + negative samples validate; py
 - [x] 🤖 Tests: fire, silence (`test_rules.py`), schema-validity (`test_schema.py`), conversion snapshot (`out/` + `scripts/ci.py`).
 - [x] 🧠 Hand-review generated SPL + KQL (committed under `out/`).
 ### 1b — correlation/threshold rule
-- [ ] 🤖 Author rules/dos_cost_abuse/token_cost_spike_per_principal.yml (tier t1; llm10; AML.T0034 + AML.T0029).
-- [ ] 🤖 Generator: burst vs normal usage.
-- [ ] ✅ Confirm correlation rule converts + passes fire/silence.
-- [ ] 🧠 Capture lessons into docs/authoring.md.
+- [x] 🤖 Author rules/dos_cost_abuse/token_cost_spike_per_principal.yml (tier t1; llm10; AML.T0034 + AML.T0029).
+- [x] 🤖 Generator: burst vs normal usage.
+- [x] ✅ Confirm correlation rule converts + passes fire/silence. (SPL: full event_count correlation; KQL: base detection + manual summarize — Kusto backend has no correlation support.)
+- [x] 🧠 Capture lessons into docs/authoring.md.
 
 ## Phase 2 — Local CI runner
 Goal: one local command runs the full check sequence; no hosted CI.
