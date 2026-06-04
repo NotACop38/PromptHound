@@ -17,7 +17,116 @@ The schema is **versioned** (`schema_version`) and intentionally vendor-neutral.
 | **T2 — content inspection** | Requires prompt/response text (`gen_ai.system_instructions`, `gen_ai.input.messages`, `gen_ai.output.messages`). | Opt-in; PII implications. |
 | **D — derived markers** | Privacy-preserving bridge: booleans/counts derived from content (e.g. `content.output.contains_system_prompt`) so content-aware detections can run as Tier-1 features without persisting raw text. | Privacy-preserving. |
 
-See PRD §10.1–§10.8 for the full field tables.
+## Fields
+
+One table per field group from PRD §10. **Tier** is the detection tier (T1/T2/D
+above). **OTel** is the OpenTelemetry GenAI semantic-conventions field this
+tracks; `—` marks a PromptHound addition (gateway / identity / network / derived)
+with no OTel equivalent. Where the field name itself *is* the OTel name the OTel
+column repeats it, to make the "names track OTel" intent explicit.
+
+### Envelope, identity, network (§10.1)
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `schema_version` | string | T1 | — | Schema version, e.g. `0.1`. |
+| `timestamp` | string (date-time) | T1 | — | Event time, ISO 8601. |
+| `event.id` | string (uuid) | T1 | — | Unique event id. |
+| `event.action` | enum | T1 | `gen_ai.operation.name` | `chat` \| `text_completion` \| `embeddings` \| `execute_tool` \| `invoke_agent`. |
+| `event.outcome` | enum | T1 | — | `success` \| `failure` \| `blocked`. |
+| `gen_ai.conversation.id` | string | T1 | `gen_ai.conversation.id` | Session/conversation id. |
+| `gen_ai.provider.name` | string | T1 | `gen_ai.provider.name` | `openai` \| `anthropic` \| `aws.bedrock` … |
+| `gen_ai.request.model` | string | T1 | `gen_ai.request.model` | Requested model. |
+| `gen_ai.response.model` | string | T1 | `gen_ai.response.model` | Responding model. |
+| `app.name` | string | T1 | — | LLM app/gateway name. |
+| `app.env` | enum | T1 | — | `prod` \| `staging` \| `dev`. |
+| `user.id` | string | T1 | — | Principal id (pseudonymous). |
+| `user.tenant.id` | string | T1 | — | Tenant/org. |
+| `user.roles` | string[] | T1 | — | Authz context. |
+| `api_key.id` | string | T1 | — | Hashed/opaque key id (never the secret). |
+| `source.ip` | string | T1 | — | Client IP. |
+| `user_agent.original` | string | T1 | `user_agent.original` | Client UA. |
+| `client.geo.country` | string | T1 | — | Optional geo. |
+| `http.request.id` | string | T1 | — | Correlates to upstream HTTP logs. |
+
+### Operational metrics (§10.2)
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `gen_ai.usage.input_tokens` | int | T1 | `gen_ai.usage.input_tokens` | OTel name (not `prompt_tokens`). |
+| `gen_ai.usage.output_tokens` | int | T1 | `gen_ai.usage.output_tokens` | |
+| `gen_ai.usage.reasoning.output_tokens` | int | T1 | `gen_ai.usage.reasoning.output_tokens` | Reasoning tokens, if reported. |
+| `gen_ai.usage.total_tokens` | int | T1 | — | Convenience sum. |
+| `gen_ai.request.temperature` | float | T1 | `gen_ai.request.temperature` | |
+| `gen_ai.request.top_p` | float | T1 | `gen_ai.request.top_p` | |
+| `gen_ai.request.max_tokens` | int | T1 | `gen_ai.request.max_tokens` | |
+| `gen_ai.request.choice.count` | int | T1 | `gen_ai.request.choice.count` | `n`. |
+| `gen_ai.response.finish_reasons` | string[] | T1 | `gen_ai.response.finish_reasons` | `stop`, `length`, `tool_calls`, `content_filter`. |
+| `gen_ai.client.operation.duration` | float (s) | T1 | `gen_ai.client.operation.duration` | Latency. |
+| `cost.usd` | float | T1 | — | Gateway-computed cost (denial-of-wallet). |
+| `error.type` | string | T1 | `error.type` | Low-cardinality error id. |
+
+### Gateway / guardrail verdicts (§10.3)
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `guardrail.input.flagged` | bool | T1 | — | Input tripped a guardrail. |
+| `guardrail.input.categories` | string[] | T1 | — | `injection`, `pii`, `toxicity`. |
+| `guardrail.output.flagged` | bool | T1 | — | Output tripped a guardrail. |
+| `guardrail.output.categories` | string[] | T1 | — | |
+| `policy.decision` | enum | T1 | — | `allow` \| `block` \| `redact`. |
+
+### Retrieval / RAG (§10.4)
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `gen_ai.data_source.id` | string[] | T1 | `gen_ai.data_source.id` | Retrieved source/doc ids; key for *indirect* injection. |
+| `rag.retrieved.count` | int | T1 | — | Chunks retrieved. |
+| `rag.source.types` | string[] | T1 | — | `web` \| `email` \| `file` \| `db` \| `ticket` … |
+
+### Agent / tool-call (§10.5)
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `gen_ai.agent.id` | string | T1 | `gen_ai.agent.id` | OTel agent spans. |
+| `gen_ai.agent.name` | string | T1 | `gen_ai.agent.name` | |
+| `gen_ai.tool.name` | string | T1 | `gen_ai.tool.name` | |
+| `gen_ai.tool.call.id` | string | T1 | `gen_ai.tool.call.id` | |
+| `gen_ai.tool.type` | enum | T1 | `gen_ai.tool.type` | `function` \| `extension` \| `mcp`. |
+| `tool.call.depth` | int | T1 | — | Position in chain. |
+| `tool.call.chain` | string[] | T1 | — | Ordered tool names this turn. |
+| `tool.call.outcome` | enum | T1 | — | `success` \| `error` \| `denied`. |
+| `tool.call.arguments` | object | T2 | — | Raw tool args. |
+| `tool.call.result` | string/object | T2 | — | Raw tool result. |
+
+### Insecure output handling (§10.6)
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `output.sink` | enum | T1 | — | `html_render` \| `sql_exec` \| `shell_exec` \| `code_eval` \| `markdown` \| `downstream_api` \| `none`. |
+| `output.rendered_unsanitized` | bool | T1 | — | Output reached a sink without sanitization (LLM05). |
+
+### Content (§10.7) — opt-in, PII-bearing
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `gen_ai.system_instructions` | string | T2 | `gen_ai.system_instructions` | System prompt text. |
+| `gen_ai.input.messages` | object[] | T2 | `gen_ai.input.messages` | `{role, parts[]}`. |
+| `gen_ai.output.messages` | object[] | T2 | `gen_ai.output.messages` | `{role, parts[], finish_reason}`. |
+
+### Derived markers (§10.8) — privacy-preserving bridge
+
+| Field | Type | Tier | OTel | Notes |
+|---|---|---|---|---|
+| `content.input.injection_markers` | int | D | — | Count of injection/extraction intent markers in input. |
+| `content.output.contains_system_prompt` | bool | D | — | Output appears to echo system instructions. |
+| `content.output.pii.types` | string[] | D | — | `email`, `ssn`, `credit_card`, `api_key`. |
+| `content.output.secret.types` | string[] | D | — | Detected secret/credential classes. |
+
+> The schema sets `additionalProperties: true`: deployments may emit extra
+> gateway-specific fields without failing validation. Required fields are the
+> envelope minimum (`schema_version`, `timestamp`, `event.id`, `event.action`,
+> `event.outcome`); everything else is optional and emitted as available.
 
 ## Example events
 
