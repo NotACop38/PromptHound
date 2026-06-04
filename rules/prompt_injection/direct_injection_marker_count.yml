@@ -1,0 +1,53 @@
+# PromptHound — Direct prompt-injection detection (Tier-1 derived-marker variant).
+# PRD §11 rule #1 (LLM01 / ATLAS AML.T0051.000 Direct). This is the
+# privacy-preserving sibling of direct_injection_markers.yml: it runs the same
+# detection intent as a *Tier-1 boolean/count* using only the derived
+# injection-marker counter (PRD §10.8, the D4 "derived markers" bridge) — no raw
+# prompt text is inspected or required, so it deploys where Tier-2 content
+# logging is off (PRD §8 P4).
+#
+# One behaviour: an input the gateway scored as carrying *multiple* injection /
+# instruction-override intent markers. The threshold (>= 2) is deliberately
+# higher than the Tier-2 rule's (>= 1) because there is no content corroboration
+# here — two independent markers is a stronger standalone signal.
+#
+# P1 (PRD §8): keys on a derived integer feature, never on a payload string.
+#
+# Sample spec: generator/samples/direct_injection_marker_count.{positive,negative}.json
+title: Direct Prompt-Injection Derived-Marker Count (Tier-1 variant)
+id: e9975d03-67ec-4e12-a309-c0c3a5393450
+status: experimental
+description: |
+  Detects a likely direct prompt-injection attempt using only the gateway's
+  derived injection-marker counter (content.input.injection_markers). Fires when
+  the input scored two or more injection/instruction-override intent markers.
+
+  Tier-1 (derived): the privacy-preserving form of OWASP LLM01:2025 / ATLAS
+  AML.T0051.000 direct injection. No prompt/response text is inspected — the
+  same high-signal detection runs as an always-on boolean wherever the gateway
+  emits the derived counter (PRD §10.8 / D4 bridge). Pair with
+  direct_injection_markers.yml (Tier-2) where content logging is available.
+references:
+  - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+  - https://atlas.mitre.org/techniques/AML.T0051.000
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm01
+  - attack.atlas.aml.t0051.000
+  - prompthound.tier.t1
+logsource:
+  product: llm_gateway
+  # Audit-log schema: docs/PRD.md §10.8 (Derived markers).
+detection:
+  high_marker_count:
+    # Derived Tier-1 marker (PRD §10.8). Two or more scored markers is a strong
+    # standalone signal without needing the raw input text.
+    content.input.injection_markers|gte: 2
+  condition: high_marker_count
+falsepositives:
+  - Aggressive or loosely-tuned gateway marker heuristics that score benign
+    inputs at 2+ (calibrate the scorer, or raise this threshold per deployment).
+  - Authorized red-team / regression suites that deliberately submit
+    injection-marker-rich inputs (scope by app.env / app.name).
+level: medium

@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1",
+  "timestamp": "2026-06-04T16:21:30Z",
+  "event.id": "d1c00001-0001-4a00-8000-0000000000c1",
+  "event.action": "chat",
+  "event.outcome": "blocked",
+  "gen_ai.conversation.id": "conv-pi-4201",
+  "gen_ai.provider.name": "anthropic",
+  "gen_ai.request.model": "claude-sonnet-4-6",
+  "app.name": "support-copilot",
+  "app.env": "prod",
+  "user.id": "u-4201",
+  "gen_ai.usage.input_tokens": 52,
+  "gen_ai.usage.output_tokens": 0,
+  "gen_ai.usage.total_tokens": 52,
+  "gen_ai.response.finish_reasons": ["content_filter"],
+  "guardrail.input.flagged": true,
+  "guardrail.input.categories": ["injection"],
+  "policy.decision": "block",
+  "content.input.injection_markers": 3
+}
