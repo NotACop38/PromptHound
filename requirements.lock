@@ -1,0 +1,46 @@
+# PromptHound — pinned runtime lockfile (PRD §13).
+#
+# Regenerate (and review the diff) with:
+#   python -m pip install --dry-run --ignore-installed --report - \
+#     "pysigma>=1.0.0" pysigma-backend-splunk pysigma-backend-kusto \
+#     sigma-cli jinja2 pyyaml
+#
+# Treat any version bump here as a reviewed change with full SPL/KQL
+# regeneration (PRD §17: pySigma/backend version drift; D5: pySigma 1.0.0
+# introduced breaking factory-pattern pipelines).
+#
+# Decision — pydantic (PRD §13, "(eval) pydantic"): DEFERRED, not included.
+#   Rationale: keep dependencies lean. Audit-log events are plain JSON and the
+#   schema-validate CI stage is a stdlib placeholder for now. If/when runtime
+#   model validation is needed we will choose between a stdlib check,
+#   `jsonschema`, or `pydantic` and pin it here at that time. No code imports it.
+#
+# Not a dependency: `pysigma-backend-sentinel` does NOT exist (PRD D5).
+# Sentinel KQL is produced by `pysigma-backend-kusto` (target `kusto`,
+# `sentinelasim` pipeline).
+
+# --- Direct runtime dependencies (PRD §13) ---
+pySigma==1.3.3
+pysigma-backend-splunk==2.1.0
+pySigma-backend-kusto==1.0.1
+sigma-cli==3.0.2
+Jinja2==3.1.6
+PyYAML==6.0.3
+
+# --- Transitive dependencies (pinned for reproducibility) ---
+certifi==2026.5.20
+charset-normalizer==3.4.7
+click==8.4.1
+colorama==0.4.6
+diskcache==5.6.3
+diskcache-stubs==5.6.3.6.20240818
+idna==3.18
+MarkupSafe==3.0.3
+packaging==26.2
+prettytable==3.17.0
+pyparsing==3.3.2
+requests==2.34.2
+types-PyYAML==6.0.12.20260518
+typing_extensions==4.15.0
+urllib3==2.7.0
+wcwidth==0.7.0
