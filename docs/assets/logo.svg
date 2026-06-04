@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="PromptHound logo">
+  <defs>
+    <linearGradient id="lh-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b4252"/>
+      <stop offset="1" stop-color="#23272f"/>
+    </linearGradient>
+    <linearGradient id="lh-ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#88c0d0"/>
+      <stop offset="1" stop-color="#a3be8c"/>
+    </linearGradient>
+    <radialGradient id="lh-glow" cx="0.38" cy="0.34" r="0.7">
+      <stop offset="0" stop-color="#88c0d0" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#88c0d0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="2" y="2" width="252" height="252" rx="52" fill="url(#lh-bg)" stroke="#4c566a" stroke-width="2"/>
+  <rect x="2" y="2" width="252" height="252" rx="52" fill="url(#lh-glow)"/>
+
+  <!-- magnifying glass handle -->
+  <line x1="158" y1="158" x2="212" y2="212" stroke="#4c566a" stroke-width="30" stroke-linecap="round"/>
+  <line x1="158" y1="158" x2="212" y2="212" stroke="url(#lh-ring)" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- lens -->
+  <circle cx="112" cy="112" r="74" fill="#2e3440"/>
+  <circle cx="112" cy="112" r="74" fill="none" stroke="url(#lh-ring)" stroke-width="15"/>
+  <circle cx="88" cy="88" r="20" fill="#ffffff" opacity="0.10"/>
+
+  <!-- hound paw inside the lens -->
+  <g fill="#88c0d0">
+    <ellipse cx="112" cy="132" rx="27" ry="22"/>
+    <circle cx="80"  cy="104" r="11"/>
+    <circle cx="100" cy="90"  r="12"/>
+    <circle cx="124" cy="90"  r="12"/>
+    <circle cx="144" cy="104" r="11"/>
+  </g>
+</svg>

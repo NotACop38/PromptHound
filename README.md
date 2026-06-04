@@ -1,15 +1,21 @@
 <div align="center">
 
-# 🐶🔍 PromptHound
+<img src="docs/assets/banner.svg" alt="PromptHound — SIEM-ready detection content for attacks against your LLM apps and AI agents" width="100%">
 
-**SIEM-ready detection content for attacks _against_ your LLM apps and AI agents.**
-**Author once in [Sigma](https://sigmahq.io/) → ship to Splunk SPL _and_ Microsoft Sentinel KQL.**
+<br>
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: Apache-2.0 + DRL-1.1](https://img.shields.io/badge/license-Apache--2.0%20%2B%20DRL--1.1-blue)](LICENSE)
 [![Rules: 15](https://img.shields.io/badge/rules-15-3fb950)](out/coverage/coverage.md)
 [![OWASP LLM Top 10 (2025)](https://img.shields.io/badge/OWASP-LLM%20Top%2010%20%282025%29-1f6feb)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![MITRE ATLAS v5.1.0](https://img.shields.io/badge/MITRE-ATLAS%20v5.1.0-d1242f)](https://atlas.mitre.org/)
+[![Sigma → SPL + KQL](https://img.shields.io/badge/Sigma-%E2%86%92%20SPL%20%2B%20KQL-8fbcbb)](#-how-it-works-one-rule-many-targets)
+
+<a href="#-see-it-run--offline-one-command"><b>▶︎ See it run</b></a> &nbsp;·&nbsp;
+<a href="#-how-it-works-one-rule-many-targets"><b>How it works</b></a> &nbsp;·&nbsp;
+<a href="#-coverage-at-a-glance"><b>Coverage</b></a> &nbsp;·&nbsp;
+<a href="#-quickstart"><b>Quickstart</b></a> &nbsp;·&nbsp;
+<a href="#-why-prompthound"><b>Why</b></a>
 
 </div>
 
@@ -39,6 +45,12 @@ condition: markers and extraction_phrases
 ![PromptHound demo: generate telemetry, run the rule pack, build the coverage map](docs/assets/demo.svg)
 
 > Full captured run: [`docs/assets/demo_output.txt`](docs/assets/demo_output.txt) — 84 events, **10/15 rules fired**, 17 hits.
+
+## 🛠️ How it works: one rule, many targets
+
+PromptHound's whole design is one idea: **write a detection once, and let everything else derive from it.** A Sigma rule on a documented, OTel-aligned schema is converted to every SIEM dialect, proven against bundled synthetic telemetry, and mapped to OWASP + ATLAS — all offline, all from the same source of truth.
+
+![PromptHound architecture: a Sigma rule is converted by pySigma into Splunk SPL and Sentinel KQL for your SIEM, and proven offline by pytest with an auto-generated OWASP × ATLAS coverage map](docs/assets/pipeline.svg)
 
 ## 🔁 One rule, every SIEM
 
