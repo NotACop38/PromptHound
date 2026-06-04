@@ -18,6 +18,25 @@
 - Document expected false positives **honestly**.
 - **Never encode a working exploit (P1).** Positive samples are log *signatures* — marker phrases and behavioural patterns — not payloads an attacker can lift and run.
 
+## Offline test harness (PRD §12)
+
+Rules are proven **without a running SIEM**. The harness
+(`prompthound/matcher.py`) parses each rule with pySigma — the same library that
+emits the SPL/KQL — and walks pySigma's own fully-resolved condition tree
+(`rule.detection.parsed_condition[0].parse()`) against a plain `dict` event.
+Using pySigma's parser instead of re-implementing Sigma's grammar keeps the
+harness faithful to the conversion source of truth.
+
+- **Fire/silence** tests run the matcher against the rule's positive/negative
+  samples in `generator/samples/<stem>.{positive,negative}.json`.
+- **Conversion** is exercised separately: `pipelines/convert.py` emits SPL + KQL,
+  snapshot-tested (non-empty + stable) against `tests/snapshots/`. If a rule or
+  pipeline legitimately changes the output, re-bless the snapshot and review it.
+- The matcher supports the Sigma subset the pack currently uses (`and`/`or`/`not`,
+  `contains` wildcards, numeric `gte`/`gt`/`lte`/`lt`, equality, null). It raises
+  on unsupported nodes rather than passing silently, so it fails loudly when a
+  new rule outgrows it.
+
 ## Checklist for a new rule (mirrors CHECKLIST "Cross-cutting")
 
 - [ ] Positive (should-alert) **and** negative (should-not-alert) sample.

@@ -21,13 +21,15 @@ Exit: schema v0.1 validating; taxonomy agreed; skeleton builds; `pytest` runs wi
 Goal: one rule fully end-to-end.
 Exit: slice rule converts to SPL + KQL; positive + negative samples validate; pytest proves fire/silence; conversion snapshot-tested.
 ### 1a — selection-match rule
-- [ ] 🧠 Decide the offline test-harness mechanism (PRD §12).
-- [ ] 🤖 Author rules/system_prompt_extraction/extract_system_prompt_markers.yml (OWASP llm07, ATLAS AML.T0056, tier t2).
-- [ ] 🤖 Build pySigma pipelines (splunk + kusto/sentinelasim).
-- [ ] 🤖 Generator: positive + negative samples.
-- [ ] 🤖 Wire conversion → SPL + KQL.
-- [ ] 🤖 Tests: fire, silence, schema-validity, conversion snapshot.
-- [ ] 🧠 Hand-review generated SPL + KQL.
+- [x] 🧠 Decide the offline test-harness mechanism (PRD §12): parse each rule with
+  pySigma and evaluate its fully-resolved condition tree against plain `dict`
+  events — no live SIEM, no SPL/KQL execution. See `prompthound/matcher.py`.
+- [x] 🤖 Author rules/system_prompt_extraction/extract_system_prompt_markers.yml (OWASP llm07, ATLAS AML.T0056, tier t2).
+- [x] 🤖 Build pySigma pipelines (splunk + kusto/sentinelasim).
+- [x] 🤖 Generator: positive + negative samples.
+- [x] 🤖 Wire conversion → SPL + KQL (`pipelines/convert.py`).
+- [x] 🤖 Tests: fire, silence, schema-validity, conversion snapshot.
+- [x] 🧠 Hand-review generated SPL + KQL (snapshots in `tests/snapshots/`).
 ### 1b — correlation/threshold rule
 - [ ] 🤖 Author rules/dos_cost_abuse/token_cost_spike_per_principal.yml (tier t1; llm10; AML.T0034 + AML.T0029).
 - [ ] 🤖 Generator: burst vs normal usage.
