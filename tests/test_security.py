@@ -36,20 +36,31 @@ def test_security_repo_has_no_committed_secrets() -> None:
 
 
 def test_security_secrets_scan_flags_aws_key() -> None:
-    findings = scan_text("config.py", "AWS_KEY = 'AKIA1234567890ABCDEF'\n")
+    # Split so this source line carries no committed secret; recombined at runtime.
+    findings = scan_text("config.py", "AWS_KEY = '" + "AKIA" + "1234567890ABCDEF'\n")
     assert [f.kind for f in findings] == ["aws-access-key"]
     assert findings[0].line == 1
 
 
 def test_security_secrets_scan_flags_provider_and_token_shapes() -> None:
+    # Token literals are split so this source line itself carries no committed
+    # secret (the repo-wide scan walks this very file); they recombine at runtime.
     samples = {
-        "openai-api-key": "key = 'sk-abcdefghijklmnopqrstuvwxyz0123'",
+        "openai-api-key": "key = 'sk-" + "abcdefghijklmnopqrstuvwxyz0123'",
         "github-token": "tok = 'ghp_" + "a" * 36 + "'",
-        "slack-token": "s = 'xoxb-123456789012-abcdefghijkl'",
+        "github-fine-grained-pat": "pat = 'github_pat_" + "A1b2C3d4E5f6G7h8I9j0K1'",
+        "slack-token": "s = 'xoxb-" + "123456789012-abcdefghijkl'",
     }
     for expected_kind, line in samples.items():
         kinds = [f.kind for f in scan_text("f.py", line)]
         assert expected_kind in kinds, f"{expected_kind} not detected in {line!r}"
+
+
+def test_security_secrets_scan_finds_real_key_after_example() -> None:
+    # A known-example value early on a line must not mask a real key later on it.
+    line = "AKIAIOSFODNN7EXAMPLE then a real " + "AKIA" + "1234567890ABCDEF"
+    kinds = [f.kind for f in scan_text("x.py", line)]
+    assert kinds == ["aws-access-key"], f"real key after example was masked: {kinds}"
 
 
 def test_security_secrets_scan_flags_private_key_block() -> None:

@@ -77,7 +77,10 @@ KNOWN_EXAMPLES: frozenset[str] = frozenset({"AKIAIOSFODNN7EXAMPLE"})
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("aws-access-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("openai-api-key", re.compile(r"\bsk-[A-Za-z0-9]{20,}\b")),
-    ("github-token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b")),
+    # Classic / OAuth / server / refresh tokens (ghp_, gho_, ghu_, ghs_, ghr_)
+    # and the github_pat_ prefix used by fine-grained PATs.
+    ("github-token", re.compile(r"\bgh[opsru]_[A-Za-z0-9]{36,}\b")),
+    ("github-fine-grained-pat", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b")),
     ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b")),
     ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")),
 )
@@ -125,13 +128,13 @@ def scan_text(rel: str, text: str) -> list[SecretFinding]:
     for lineno, line in enumerate(lines, start=1):
         if ALLOWLIST_MARKER in line:
             continue
+        excerpt = line.strip()
+        excerpt = excerpt if len(excerpt) <= 120 else excerpt[:117] + "..."
         for kind, pattern in _SECRET_PATTERNS:
-            match = pattern.search(line)
-            if not match or match.group(0).strip() in KNOWN_EXAMPLES:
-                continue
-            excerpt = line.strip()
-            excerpt = excerpt if len(excerpt) <= 120 else excerpt[:117] + "..."
-            findings.append(SecretFinding(rel, lineno, kind, excerpt))
+            # Walk *every* match so a known-example value earlier on the line can't
+            # mask a real credential later on it; exempt only the example itself.
+            if any(m.group(0).strip() not in KNOWN_EXAMPLES for m in pattern.finditer(line)):
+                findings.append(SecretFinding(rel, lineno, kind, excerpt))
     for kind, pattern in _MULTILINE_SECRET_PATTERNS:
         for match in pattern.finditer(text):
             lineno = text.count("\n", 0, match.start()) + 1
