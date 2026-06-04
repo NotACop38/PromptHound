@@ -6,7 +6,7 @@
 **Author once in [Sigma](https://sigmahq.io/) → ship to Splunk SPL _and_ Microsoft Sentinel KQL.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![License: Apache-2.0 + DRL-1.1 (proposed)](https://img.shields.io/badge/license-Apache--2.0%20%2B%20DRL--1.1%20%28proposed%29-blue)](LICENSE)
+[![License: Apache-2.0 + DRL-1.1](https://img.shields.io/badge/license-Apache--2.0%20%2B%20DRL--1.1-blue)](LICENSE)
 [![Rules: 15](https://img.shields.io/badge/rules-15-3fb950)](out/coverage/coverage.md)
 [![OWASP LLM Top 10 (2025)](https://img.shields.io/badge/OWASP-LLM%20Top%2010%20%282025%29-1f6feb)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![MITRE ATLAS v5.1.0](https://img.shields.io/badge/MITRE-ATLAS%20v5.1.0-d1242f)](https://atlas.mitre.org/)
@@ -109,7 +109,7 @@ The coverage map is **generated from rule metadata only** — it can never be ha
 | LLM09 | Misinformation | — | 0 |
 | LLM10 | Unbounded Consumption | ✅ | 5 |
 
-> **6/10 OWASP LLM categories covered** by 15 rules across 10 ATLAS techniques/tactics (Tier 1 operational: 11 · Tier 2 content: 6). Rules can map to multiple categories, so the column sums exceed 15. Full grids + an [ATLAS Navigator](https://mitre-atlas.github.io/atlas-navigator/) layer: [`out/coverage/coverage.md`](out/coverage/coverage.md) · [`coverage.html`](out/coverage/coverage.html).
+> **6/10 OWASP LLM categories covered** by 15 rules across 10 ATLAS techniques/tactics (Tier 1 operational: 11 · Tier 2 content: 6), plus a secondary **OWASP Agentic AI** mapping on the agent rules (3 threats). Rules can map to multiple categories, so the column sums exceed 15. Full grids + an [ATLAS Navigator](https://mitre-atlas.github.io/atlas-navigator/) layer: [`out/coverage/coverage.md`](out/coverage/coverage.md) · [`coverage.html`](out/coverage/coverage.html).
 
 ## 🚀 Quickstart
 
@@ -123,12 +123,12 @@ make demo                                     # generate telemetry → run rules
 No `make`? Run the demo directly: `python demo/run_demo.py --seed 0`. Other entrypoints:
 
 ```bash
-make ci       # full local check sequence: lint → schema → convert → fire/silence → metadata → coverage
-make release  # regenerate all SPL/KQL/coverage artifacts into out/
+make ci       # full local check sequence: lint → schema → convert → fire/silence → metadata → coverage → security
+make release  # regenerate all SPL/KQL/coverage artifacts into out/ + a versioned bundle
 make test     # the pytest suite
 ```
 
-There is **no hosted CI** — the local runner (`scripts/ci.py`) is the gate, run on demand.
+There is **no hosted CI** — the local runner (`scripts/ci.py`) is the gate, run on demand. `make ci` / `make test` need the pinned dev toolchain: `pip install -r requirements-dev.lock` (or `make setup`); see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## 💡 Why PromptHound
 
@@ -161,10 +161,12 @@ PromptHound is **inspired by and complementary to** existing work; the honest co
 
 ## ➕ Contributing
 
-A new rule is one Sigma file plus a positive **and** negative sample, with OWASP + ATLAS + tier metadata; `make ci` enforces the rest.
+A new rule is one Sigma file plus a positive **and** negative sample, with OWASP + ATLAS + tier metadata; `make ci` enforces the rest. Fork it, add a rule, get it merged via CI.
 
-- **[`docs/authoring.md`](docs/authoring.md)** — add a rule in ~10 minutes.
+- **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — setup, the authoring standard, and the merge gate.
+- **[`docs/authoring.md`](docs/authoring.md)** — add a rule in ~10 minutes (worked walkthrough).
 - **[`docs/PRD.md` §15](docs/PRD.md#15-rule-authoring-standard)** — the rule authoring standard (required fields, tags, honest false positives).
+- **Templates** — a metadata-enforcing "New detection rule" issue form and a "new rule" PR template.
 - Every contribution must honor **P1–P4** above. Read [`SECURITY.md`](SECURITY.md) first.
 
 ## 📚 Documentation & status
@@ -172,9 +174,15 @@ A new rule is one Sigma file plus a positive **and** negative sample, with OWASP
 - **[`docs/PRD.md`](docs/PRD.md)** — product requirements (source of truth).
 - **[`docs/CHECKLIST.md`](docs/CHECKLIST.md)** — engineering checklist & phase status.
 - **[`docs/schema.md`](docs/schema.md)** — the audit-log schema, with examples.
+- **[`CHANGELOG.md`](CHANGELOG.md)** — what changed, by version.
 
-> **Status:** pre-1.0 and actively built out — 15 rules across 7 attack categories (6/10 OWASP LLM categories), a full offline demo, and a local CI runner are in place. A few decisions remain open (notably licensing, **D7**); see the checklist.
+> **Status:** pre-1.0 and actively built out — 15 rules across 7 attack categories (6/10 OWASP LLM categories), a full offline demo, a local CI runner, and a versioned release bundle are in place. The previously-open decisions are now settled: **Apache-2.0 + DRL 1.1** licensing (**D7**) and the secondary **OWASP Agentic** mapping for agent rules (**D6**). See the checklist.
 
 ## ⚖️ License
 
-Licensing is an open decision (PRD §9, **D7**). The recommended — but **not yet ratified** — direction is **Apache-2.0** for code and **DRL 1.1** for detection content; until then all rights are reserved. See [`LICENSE`](LICENSE).
+PromptHound is **dual-licensed** (PRD §9, **D7**):
+
+- **Code & docs** — [Apache-2.0](LICENSE) (see [`NOTICE`](NOTICE)).
+- **Detection content** — the Sigma rules under `rules/` and the SPL/KQL generated from them under `out/` — [DRL 1.1](LICENSE-RULES).
+
+If you redistribute the rules (including modified) or ship alerts based on them, retain the rule author/attribution and a link to the rule set, per the DRL.

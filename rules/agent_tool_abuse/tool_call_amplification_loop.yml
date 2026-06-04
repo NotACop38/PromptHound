@@ -63,6 +63,10 @@ date: 2026-06-04
 tags:
   - owasp-llm.llm10
   - owasp-llm.llm06
+  # OWASP Agentic AI — Threats and Mitigations (secondary mapping, PRD D6): a
+  # runaway tool-call chain fans out and amplifies downstream resource and cost
+  # consumption — T4 Resource Overload.
+  - owasp-agentic.t04
   - attack.atlas.aml.ta0015
   - attack.atlas.aml.t0034
   - attack.atlas.aml.t0029

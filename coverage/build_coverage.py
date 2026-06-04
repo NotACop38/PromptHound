@@ -97,6 +97,33 @@ TIERS: dict[str, str] = {
     "T2": "Content inspection (opt-in)",
 }
 
+# OWASP Agentic AI -- Threats and Mitigations (v1.0, Feb 2025). A *secondary*
+# mapping carried only by agent rules (PRD D6): the OWASP LLM Top 10 stays the
+# primary user-facing taxonomy, and this adds the agent-specific threat lens.
+# Re-verify the ids/names at author time (CHECKLIST cross-cutting).
+OWASP_AGENTIC: dict[str, str] = {
+    "T1": "Memory Poisoning",
+    "T2": "Tool Misuse",
+    "T3": "Privilege Compromise",
+    "T4": "Resource Overload",
+    "T5": "Cascading Hallucination Attacks",
+    "T6": "Intent Breaking & Goal Manipulation",
+    "T7": "Misaligned & Deceptive Behaviors",
+    "T8": "Repudiation & Untraceability",
+    "T9": "Identity Spoofing & Impersonation",
+    "T10": "Overwhelming Human-in-the-Loop",
+    "T11": "Unexpected RCE and Code Attacks",
+    "T12": "Agent Communication Poisoning",
+    "T13": "Rogue Agents in Multi-Agent Systems",
+    "T14": "Human Attacks on Multi-Agent Systems",
+    "T15": "Human Manipulation",
+}
+
+# Rule categories (top-level rules/ subdir) whose rules MUST carry the secondary
+# OWASP Agentic mapping (PRD D6 "secondary mapping field for agent rules"). The
+# metadata gate enforces it for these categories only.
+AGENT_RULE_CATEGORIES: frozenset[str] = frozenset({"agent_tool_abuse"})
+
 
 # --- Tag parsing ---------------------------------------------------------------
 
@@ -116,6 +143,11 @@ def parse_tag(tag: str) -> ParsedTag:
     if tag.startswith("owasp-llm."):
         m = re.fullmatch(r"llm(\d{2})", tag[len("owasp-llm.") :])
         return ParsedTag("owasp", f"LLM{m.group(1)}") if m else ParsedTag("unknown", tag)
+    if tag.startswith("owasp-agentic."):
+        # Authored zero-padded (e.g. owasp-agentic.t04) to mirror owasp-llm.llmNN;
+        # canonicalised to the OWASP-style un-padded id (T4) for the catalog/map.
+        m = re.fullmatch(r"t(\d{1,2})", tag[len("owasp-agentic.") :])
+        return ParsedTag("owasp_agentic", f"T{int(m.group(1))}") if m else ParsedTag("unknown", tag)
     if tag.startswith("attack.atlas.aml."):
         suffix = tag[len("attack.atlas.aml.") :]
         if re.fullmatch(r"ta\d{4}", suffix):
@@ -144,6 +176,7 @@ class RuleMeta:
     category: str
     title: str
     owasp: list[str] = field(default_factory=list)
+    owasp_agentic: list[str] = field(default_factory=list)
     atlas_techniques: list[str] = field(default_factory=list)
     atlas_tactics: list[str] = field(default_factory=list)
     attack: list[str] = field(default_factory=list)
@@ -196,6 +229,8 @@ def load_rule_meta(path: Path, errors: list[str]) -> RuleMeta | None:
         parsed = parse_tag(str(raw))
         if parsed.kind == "owasp" and _validate_id(parsed, OWASP_LLM, rel, errors):
             meta.owasp.append(parsed.cid)
+        elif parsed.kind == "owasp_agentic" and _validate_id(parsed, OWASP_AGENTIC, rel, errors):
+            meta.owasp_agentic.append(parsed.cid)
         elif parsed.kind == "atlas_technique" and _validate_id(
             parsed, ATLAS_TECHNIQUES, rel, errors
         ):
@@ -216,6 +251,9 @@ def load_rule_meta(path: Path, errors: list[str]) -> RuleMeta | None:
         errors.append(f"{rel}: missing required prompthound.tier tag")
     if not (meta.atlas_techniques or meta.atlas_tactics or meta.attack):
         errors.append(f"{rel}: missing required technique mapping (ATLAS or ATT&CK)")
+    # D6: agent rules carry a secondary OWASP Agentic mapping; enforced per category.
+    if meta.category in AGENT_RULE_CATEGORIES and not meta.owasp_agentic:
+        errors.append(f"{rel}: agent rule missing required OWASP Agentic tag (owasp-agentic.tNN)")
     return meta
 
 
@@ -252,6 +290,19 @@ def build_model(rules: list[RuleMeta]) -> dict[str, Any]:
     for entry in owasp:
         entry["count"] = len(entry["rules"])
         entry["covered"] = entry["count"] > 0
+        entry["label"] = (
+            f"{entry['count']} rule" + ("s" if entry["count"] != 1 else "")
+            if entry["covered"]
+            else "no coverage"
+        )
+
+    # OWASP Agentic AI -- secondary mapping, only the threats some agent rule covers.
+    agentic: list[dict[str, Any]] = []
+    for tid, name in OWASP_AGENTIC.items():
+        covering = rules_for(lambda r, tid=tid: tid in r.owasp_agentic)
+        if covering:
+            agentic.append({"id": tid, "name": name, "rules": covering, "count": len(covering)})
+    agentic.sort(key=lambda e: int(e["id"][1:]))
 
     atlas: list[dict[str, Any]] = []
     for cid, name in {**ATLAS_TECHNIQUES, **ATLAS_TACTICS}.items():
@@ -294,6 +345,9 @@ def build_model(rules: list[RuleMeta]) -> dict[str, Any]:
         "owasp": owasp,
         "owasp_covered": covered_owasp,
         "owasp_total": len(OWASP_LLM),
+        "agentic": agentic,
+        "agentic_covered": len(agentic),
+        "agentic_total": len(OWASP_AGENTIC),
         "atlas": atlas,
         "attack": attack,
         "tiers": tiers,
@@ -381,6 +435,21 @@ def coverage_markdown(model: dict[str, Any]) -> str:
             lines.append(f"| {e['id']} | {e['name']} | {e['count']} | {files} |")
         lines.append("")
 
+    if model["agentic"]:
+        lines.append("## OWASP Agentic AI — Threats and Mitigations (secondary)")
+        lines.append("")
+        lines.append(
+            f"> Secondary mapping carried by agent rules only (PRD D6); "
+            f"**{model['agentic_covered']}/{model['agentic_total']}** threats mapped."
+        )
+        lines.append("")
+        lines.append("| Agentic | Threat | Rules | Rule files |")
+        lines.append("|---|---|:---:|---|")
+        for e in model["agentic"]:
+            files = "<br>".join(f"`{r}`" for r in e["rules"])
+            lines.append(f"| {e['id']} | {e['name']} | {e['count']} | {files} |")
+        lines.append("")
+
     lines.append("## Tier breakdown")
     lines.append("")
     lines.append("| Tier | Description | Rules |")
@@ -414,8 +483,8 @@ _HTML_TEMPLATE = """<!doctype html>
   .stat .l { color: var(--muted); font-size: .78rem; text-transform: uppercase;
              letter-spacing: .04em; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .6rem; }
-  .cell { border: 1px solid #e2e6ea; border-radius: 10px; padding: .7rem .8rem; background: var(--miss);
-          opacity: .65; }
+  .cell { border: 1px solid #e2e6ea; border-radius: 10px; padding: .7rem .8rem;
+          background: var(--miss); opacity: .65; }
   .cell.covered { background: var(--ok-bg); border-color: #bcd8f5; opacity: 1; }
   .cell .id { font-weight: 700; font-size: .82rem; }
   .cell .nm { font-size: .82rem; color: var(--ink); }
@@ -445,6 +514,10 @@ _HTML_TEMPLATE = """<!doctype html>
       <div class="l">OWASP covered</div></div>
     <div class="stat"><div class="n">{{ m.atlas|length }}</div>
       <div class="l">ATLAS mapped</div></div>
+  {% if m.agentic %}
+    <div class="stat"><div class="n">{{ m.agentic_covered }}/{{ m.agentic_total }}</div>
+      <div class="l">Agentic mapped</div></div>
+  {% endif %}
   </div>
 
   <h2>OWASP LLM Top 10 (2025)</h2>
@@ -453,7 +526,7 @@ _HTML_TEMPLATE = """<!doctype html>
     <div class="cell {{ 'covered' if e.covered else '' }}">
       <div class="id">{{ e.id }}</div>
       <div class="nm">{{ e.name }}</div>
-      <div class="ct">{% if e.covered %}{{ e.count }} rule{{ 's' if e.count != 1 }}{% else %}no coverage{% endif %}</div>
+      <div class="ct">{{ e.label }}</div>
     </div>
   {% endfor %}
   </div>
@@ -475,6 +548,20 @@ _HTML_TEMPLATE = """<!doctype html>
   <table>
     <tr><th>ID</th><th>Name</th><th>Rules</th><th>Rule files</th></tr>
   {% for e in m.attack %}
+    <tr>
+      <td><code>{{ e.id }}</code></td><td>{{ e.name }}</td>
+      <td><span class="pill">{{ e.count }}</span></td>
+      <td>{% for r in e.rules %}<code>{{ r }}</code><br>{% endfor %}</td>
+    </tr>
+  {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if m.agentic %}
+  <h2>OWASP Agentic AI — Threats and Mitigations <span class="pill">secondary</span></h2>
+  <table>
+    <tr><th>ID</th><th>Threat</th><th>Rules</th><th>Rule files</th></tr>
+  {% for e in m.agentic %}
     <tr>
       <td><code>{{ e.id }}</code></td><td>{{ e.name }}</td>
       <td><span class="pill">{{ e.count }}</span></td>
@@ -560,7 +647,12 @@ def coverage_svg(model: dict[str, Any]) -> str:
     body: list[str] = []
 
     def txt(
-        x: float, y: float, s: str, fill: str, size: float = 13, weight: str = "normal",
+        x: float,
+        y: float,
+        s: str,
+        fill: str,
+        size: float = 13,
+        weight: str = "normal",
         mono: bool = False,
     ) -> None:
         fam = ' font-family="SFMono-Regular,Consolas,Menlo,monospace"' if mono else ""
@@ -576,13 +668,14 @@ def coverage_svg(model: dict[str, Any]) -> str:
     y = pad + 26
     txt(pad, y, "PromptHound — coverage map", _NORD["yellow"], size=21, weight="700")
     y += 22
-    txt(
-        pad, y,
+    subtitle = (
         f"auto-generated from rule metadata · {model['rule_count']} rules · "
         f"OWASP LLM Top 10 {model['owasp_covered']}/{model['owasp_total']} covered · "
-        f"ATLAS {len(model['atlas'])} techniques/tactics",
-        _NORD["muted"], size=12,
+        f"ATLAS {len(model['atlas'])} techniques/tactics"
     )
+    if model["agentic"]:
+        subtitle += f" · Agentic {model['agentic_covered']} mapped"
+    txt(pad, y, subtitle, _NORD["muted"], size=12)
     y += 12
     box(pad, y, inner, 1, _NORD["rule"], rx=0)
 
@@ -599,13 +692,25 @@ def coverage_svg(model: dict[str, Any]) -> str:
         on = e["covered"]
         box(cx, cy, cw, ch, _NORD["panel"] if on else _NORD["panel_off"])
         box(cx, cy, 4, ch, _NORD["green"] if on else _NORD["muted"], rx=2)
-        txt(cx + 13, cy + 23, e["id"], _NORD["bright"] if on else _NORD["muted"],
-            size=14, weight="700")
+        txt(
+            cx + 13,
+            cy + 23,
+            e["id"],
+            _NORD["bright"] if on else _NORD["muted"],
+            size=14,
+            weight="700",
+        )
         for j, line in enumerate(_wrap(e["name"], 21, 2)):
             txt(cx + 13, cy + 42 + j * 13, line, _NORD["ink"] if on else _NORD["muted"], size=10.5)
         label = (f"{e['count']} rule" + ("s" if e["count"] != 1 else "")) if on else "no coverage"
-        txt(cx + 13, cy + ch - 12, label, _NORD["green"] if on else _NORD["muted"],
-            size=11, weight="700" if on else "normal")
+        txt(
+            cx + 13,
+            cy + ch - 12,
+            label,
+            _NORD["green"] if on else _NORD["muted"],
+            size=11,
+            weight="700" if on else "normal",
+        )
     y += 2 * ch + gap + 30
 
     # MITRE ATLAS technique/tactic bars.
@@ -642,10 +747,37 @@ def coverage_svg(model: dict[str, Any]) -> str:
         txt(bar_x + fill_w + 8, y + 12, str(e["count"]), _NORD["ink"], size=11, weight="700")
         y += 25
 
+    # OWASP Agentic AI (secondary) -- only when an agent rule carries the tag.
+    if model["agentic"]:
+        y += 12
+        txt(
+            pad,
+            y,
+            "OWASP Agentic AI — Threats & Mitigations (secondary)",
+            _NORD["ink"],
+            size=13,
+            weight="700",
+        )
+        y += 16
+        ag_max = max((e["count"] for e in model["agentic"]), default=1)
+        for e in model["agentic"]:
+            txt(pad, y + 12, e["id"], _NORD["yellow"], size=12, mono=True)
+            txt(name_x, y + 12, _wrap(e["name"], 38, 1)[0], _NORD["muted"], size=11)
+            box(bar_x, y + 2, bar_w, 13, _NORD["track"], rx=6)
+            fill_w = max(6, round(bar_w * e["count"] / ag_max))
+            box(bar_x, y + 2, fill_w, 13, _NORD["yellow"], rx=6)
+            txt(bar_x + fill_w + 8, y + 12, str(e["count"]), _NORD["ink"], size=11, weight="700")
+            y += 23
+
     # Footer.
     y += 18
-    txt(pad, y, "Never hand-edited — built from rule tags by coverage/build_coverage.py.",
-        _NORD["muted"], size=10.5)
+    txt(
+        pad,
+        y,
+        "Never hand-edited — built from rule tags by coverage/build_coverage.py.",
+        _NORD["muted"],
+        size=10.5,
+    )
     height = y + pad - 4
 
     header = (

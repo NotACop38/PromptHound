@@ -1,0 +1,24 @@
+# PromptHound — pinned local-CI toolchain (PRD §13, §16; CHECKLIST Phase 6).
+#
+# These are the tools `python scripts/ci.py` shells out to. pyproject.toml lists
+# them with floors (.[dev], .[security]); this file pins the *exact* versions so
+# the green pass is reproducible — a lint/format/type tool that floats across
+# versions makes CI pass or fail by luck, which breaks the "a stranger can add a
+# rule and get it merged via CI" bar. Bump = a reviewed change (re-run ci.py,
+# regenerate out/ if a format/style change touches generated content).
+#
+# Install the full local toolchain into one environment:
+#   python -m pip install -r requirements.lock -r requirements-dev.lock -e .
+#
+# (requirements.lock pins the runtime deps audited by the security stage; this
+#  dev toolchain is deliberately kept out of that audited surface.)
+
+# Lint + format (ruff format --check, ruff check) — version determines style.
+ruff==0.15.16
+# Static typing (mypy prompthound) — version determines unused-ignore detection.
+mypy==2.1.0
+# Test runner (pytest -q) for the fire/silence + snapshot suites.
+pytest==9.0.3
+# Security stage (PRD §8 P1–P4, §17): supply-chain audit + first-party SAST.
+pip-audit==2.10.0
+bandit==1.9.4

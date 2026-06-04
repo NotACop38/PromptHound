@@ -58,7 +58,10 @@ Exit: ≥1 rule per category (PRD §11), all green, each with honest falsepositi
 - [ ] 🤖 Data / PII exfiltration (LLM02 / AML.T0024).
 - [ ] 🤖 Agent tool-abuse (LLM06 / AML.TA0015) — CurXecute / CVE-2025-54135/6.
 - [ ] 🧠 Per category: review 1–2 rules for generalizability (P1) + FP honesty.
-- [ ] 🧠 [OPEN] D6 — OWASP Agentic Top 10 secondary tag?
+- [x] 🧠 D6 — OWASP Agentic Top 10 secondary tag: **yes**. Agent rules carry a
+  secondary `owasp-agentic.tNN` (OWASP Agentic AI — Threats and Mitigations,
+  T1–T15); the metadata gate requires it for agent rules and the coverage map
+  renders an Agentic section.
 
 ## Phase 4 — Coverage map
 Goal: auto-generated, never-stale OWASP × ATLAS coverage.
@@ -80,14 +83,16 @@ Exit: demo/run_demo.py does generate → detect → hits + coverage map, from a 
 ## Phase 6 — Community readiness
 Goal: forkable, contributable, trustworthy.
 Exit: a stranger can understand the line, add a rule, and get it merged via CI.
-- [ ] 🧠 [OPEN] D7 — LICENSE.
-- [ ] 🤖 CONTRIBUTING.md (authoring standard + P1–P4).
-- [ ] 🤖 docs/authoring.md ("add a rule in 10 minutes").
-- [ ] 🤖 Issue/PR templates incl. a "new rule" template enforcing metadata + samples.
+- [x] 🧠 D7 — LICENSE: **Apache-2.0** (code & docs) + **DRL 1.1** (detection content under `rules/` + generated `out/`). See `LICENSE`, `LICENSE-RULES`, `NOTICE`.
+- [x] 🤖 CONTRIBUTING.md (authoring standard §15 + P1–P4 + the merge gate).
+- [x] 🤖 docs/authoring.md ("add a rule in 10 minutes" walkthrough + reference).
+- [x] 🤖 Issue/PR templates: metadata-enforcing "New detection rule" issue form, bug-report form, default PR template + a "new rule" PR template.
 - [x] 🤖 SECURITY.md + docs/THREAT-MODEL.md (non-goals).
 - [x] 🤖 Security stage enforced locally: `scripts/ci.py` security stage (pip-audit + bandit + secrets scan), runnable alone via `--only security`; P1/P2 invariant tests (`tests/test_invariants.py`).
-- [ ] 🧠 [OPEN] D8 — deployable packaging fast-follow.
-- [ ] 🧠 Pre-launch: name/branding, badges, repo description, topics.
+- [x] 🤖 Release builder `scripts/release.py`: regenerate all `out/` artifacts, stamp the version, build a reproducible bundle (`out/dist/`); `CHANGELOG.md` added.
+- [x] 🧠 D8 — packaging: raw-query versioned bundle ships via `scripts/release.py`; deployable per-SIEM packaging is a documented fast-follow.
+- [x] 🤖 Pinned local-CI toolchain (`requirements-dev.lock`) so the green pass is reproducible.
+- [ ] 🧠 Pre-launch: name check (**D9**), repo description, topics. (Badges + branding in README done.)
 
 ## Cross-cutting
 - [ ] Keep PRD.md and this checklist in sync; log decision changes in the PRD.

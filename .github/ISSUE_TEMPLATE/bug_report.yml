@@ -1,0 +1,40 @@
+name: Bug report
+description: A rule misfires, a conversion is wrong, the demo/CI breaks, or docs are off.
+title: "[bug] <summary>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please **do not** report security vulnerabilities here — follow
+        [SECURITY.md](../../blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw vs. what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Ideally the exact command (e.g. `make ci`, `python demo/run_demo.py --seed 0`) and any rule/sample involved.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Python version, OS, and `pip freeze | grep -i sigma` if conversion-related.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I ran `make ci` (or `python scripts/ci.py`) and included relevant output.
+          required: false
+        - label: This is not a security vulnerability (those go via SECURITY.md).
+          required: true

@@ -1,5 +1,11 @@
 # PromptHound — developer entrypoints (PRD §12). No hosted CI; run locally.
-.PHONY: ci release fmt test demo
+.PHONY: setup ci release fmt test demo
+
+# Install the pinned runtime deps + dev/CI toolchain + the package, into the
+# current environment (use a venv). requirements-dev.lock pins ruff/mypy/pytest/
+# pip-audit/bandit so the green pass is reproducible (CHECKLIST Phase 6).
+setup:
+	python -m pip install -r requirements.lock -r requirements-dev.lock -e .
 
 # Full local CI runner: ordered stages, non-zero exit on failure (PRD §16).
 ci:
@@ -10,7 +16,8 @@ ci:
 demo:
 	python demo/run_demo.py --seed 0
 
-# Local CD: regenerate SPL/KQL/coverage artifacts into out/ (PRD §12).
+# Local CD: regenerate SPL/KQL/coverage artifacts into out/, then stamp a
+# versioned, reproducible release bundle under out/dist/ (PRD §12, D8).
 release:
 	python scripts/release.py
 

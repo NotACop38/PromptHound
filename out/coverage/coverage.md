@@ -40,6 +40,16 @@
 |---|---|:---:|---|
 | T1059 | Command and Scripting Interpreter | 1 | `insecure_output/unsanitized_output_to_sink.yml` |
 
+## OWASP Agentic AI — Threats and Mitigations (secondary)
+
+> Secondary mapping carried by agent rules only (PRD D6); **3/15** threats mapped.
+
+| Agentic | Threat | Rules | Rule files |
+|---|---|:---:|---|
+| T2 | Tool Misuse | 1 | `agent_tool_abuse/anomalous_tool_call_chain.yml` |
+| T3 | Privilege Compromise | 1 | `agent_tool_abuse/denied_tool_retry_loop.yml` |
+| T4 | Resource Overload | 1 | `agent_tool_abuse/tool_call_amplification_loop.yml` |
+
 ## Tier breakdown
 
 | Tier | Description | Rules |
