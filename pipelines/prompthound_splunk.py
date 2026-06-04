@@ -27,9 +27,10 @@ from prompthound.fieldmap import FIELD_MAP
 #: Output formats exposed by the Splunk backend that we support (PRD D5).
 SUPPORTED_FORMATS = ("default", "savedsearches")
 
-# Lower priority => runs before vendor/content pipelines, so downstream items see
-# already-flattened column names.
-_PIPELINE_PRIORITY = 20
+# Priority only matters if this pipeline is merged with another via the plugin
+# resolver; we drive the Splunk backend with it standalone, so it is informational
+# (a low value keeps our field flattening first should it ever be composed).
+_PIPELINE_PRIORITY = 9
 
 
 def prompthound_splunk_pipeline() -> ProcessingPipeline:

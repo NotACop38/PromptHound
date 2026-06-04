@@ -29,9 +29,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = REPO_ROOT / "out"
-RULES_DIR = REPO_ROOT / "rules"
-FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
+# Importable when run as `python scripts/ci.py` (so `scripts.*`/`prompthound.*` resolve).
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 SAMPLES_DIR = REPO_ROOT / "generator" / "samples"
 BAR = "=" * 72
 
@@ -99,76 +100,44 @@ def placeholder(note: str) -> Callable[[], bool]:
 
 # --- convert stage (PRD §16 "convert (snapshot)", §12, decision D5) -----------
 #
-# Real conversion: every rule is run through both pySigma backends and the SPL +
-# KQL is regenerated into out/. The stage asserts each output is non-empty and
-# byte-stable (a second pass produces identical text), which is the snapshot
-# guarantee PRD §12 asks for. Until real rules exist under rules/ it falls back
-# to the toolchain smoke fixture so the pipeline is still proven on every run.
-
-
-def _discover_rule_files() -> tuple[list[Path], Path, str]:
-    """Return (rule files, base dir for out/ mirroring, human label)."""
-    rules = sorted(RULES_DIR.glob("**/*.yml")) + sorted(RULES_DIR.glob("**/*.yaml"))
-    if rules:
-        return rules, RULES_DIR, "rules/"
-    fixtures = sorted(FIXTURES_DIR.glob("*.yml")) + sorted(FIXTURES_DIR.glob("*.yaml"))
-    return fixtures, FIXTURES_DIR, "tests/fixtures/ (no rules authored yet)"
-
-
-def _write_text(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text if text.endswith("\n") else text + "\n", encoding="utf-8")
+# Snapshot *check*, not a writer: every rule is run through both pySigma backends
+# and the regenerated SPL/KQL is compared against the committed out/ snapshot.
+# The stage fails if any output is empty (SPL, KQL, or savedsearches.conf),
+# non-byte-stable, missing from out/, drifted from out/, or if out/ holds a stale
+# generated file with no current source. Run `python scripts/release.py` to
+# (re)write out/. This keeps an ephemeral CI run honest -- it never silently
+# rewrites the artifacts it is supposed to be guarding.
 
 
 def convert_stage() -> bool:
-    """Regenerate SPL + KQL into out/; fail on empty or non-deterministic output."""
-    from prompthound.convert import convert_rule
+    """Verify the committed out/ SPL+KQL snapshot is current, non-empty, and stable."""
+    from scripts.conversion import OUT_DIR as ARTIFACT_OUT_DIR
+    from scripts.conversion import build_artifacts, committed_outputs
 
-    rule_files, base_dir, label = _discover_rule_files()
-    if not rule_files:
-        print("  no rule or fixture files found to convert")
-        return False
-    print(f"  converting {len(rule_files)} file(s) from {label}")
-
+    artifacts, errors = build_artifacts()
     ok = True
-    for rule_file in rule_files:
-        rel = rule_file.relative_to(base_dir).with_suffix("")
-        try:
-            result = convert_rule(rule_file)
-            # Stability/snapshot: a second pass must be byte-identical.
-            again = convert_rule(rule_file)
-        except Exception as exc:  # conversion error => stage fails, with context
-            print(f"  [FAIL] {rel}: {type(exc).__name__}: {exc}")
-            ok = False
-            continue
+    for error in errors:
+        print(f"  [FAIL] {error}")
+        ok = False
+    if not artifacts:
+        return False
 
-        spl_text = "\n".join(result.spl)
-        kql_text = "\n".join(result.kql)
-        stable = (
-            result.spl == again.spl
-            and result.kql == again.kql
-            and result.savedsearches == again.savedsearches
-        )
-        if not spl_text.strip():
-            print(f"  [FAIL] {rel}: empty SPL")
+    print(f"  checking {len(artifacts)} generated artifact(s) against out/")
+    for path, content in sorted(artifacts.items()):
+        rel = path.relative_to(ARTIFACT_OUT_DIR)
+        if not path.is_file():
+            print(f"  [FAIL] out/{rel}: missing snapshot (run scripts/release.py)")
             ok = False
-        if not kql_text.strip():
-            print(f"  [FAIL] {rel}: empty KQL")
+        elif path.read_text(encoding="utf-8") != content:
+            print(f"  [FAIL] out/{rel}: snapshot drift (run scripts/release.py)")
             ok = False
-        if not stable:
-            print(f"  [FAIL] {rel}: conversion is not byte-stable across runs")
-            ok = False
-        if not (spl_text.strip() and kql_text.strip() and stable):
-            continue
+        else:
+            print(f"  [ ok ] out/{rel}")
 
-        # Mirror the source layout under out/ so nested categories never collide.
-        _write_text(OUT_DIR / "splunk" / rel.with_suffix(".spl"), spl_text)
-        _write_text(
-            OUT_DIR / "splunk" / rel.parent / (rel.name + ".savedsearches.conf"),
-            result.savedsearches,
-        )
-        _write_text(OUT_DIR / "kusto" / rel.with_suffix(".kql"), kql_text)
-        print(f"  [ ok ] {rel}: SPL={len(result.spl)} KQL={len(result.kql)} -> out/")
+    # Orphans: committed artifacts whose source rule/fixture no longer exists.
+    for path in sorted(committed_outputs() - set(artifacts)):
+        print(f"  [FAIL] out/{path.relative_to(ARTIFACT_OUT_DIR)}: stale (run scripts/release.py)")
+        ok = False
 
     return ok
 

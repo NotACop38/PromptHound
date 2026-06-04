@@ -37,8 +37,13 @@ from prompthound.fieldmap import DEFAULT_QUERY_TABLE, FIELD_MAP
 #: ``azure_monitor`` for non-ASIM Log Analytics deployments (PRD §17).
 KustoFlavour = Literal["sentinelasim", "azure_monitor"]
 
-# Lower priority => our field flattening runs before the bundled pipeline.
-_PIPELINE_PRIORITY = 20
+# Ordering guarantee: ``prompthound_kusto_pipeline`` composes our pipeline as
+# ``field_pipeline + bundled`` and pySigma applies items in list order (it does
+# NOT re-sort by priority on apply), so our dotted->underscore mapping always runs
+# before the bundled ASIM/Azure-Monitor transformations. We additionally set a
+# priority below the bundled pipelines' 10 so the order is also correct if these
+# pipelines are ever merged via the plugin resolver (which does sort by priority).
+_PIPELINE_PRIORITY = 9
 
 
 def _prompthound_field_pipeline() -> ProcessingPipeline:

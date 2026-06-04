@@ -49,10 +49,11 @@ dev = ["ruff>=0.5", "mypy>=1.8", "pytest>=8.0"]
 Documentation = "https://github.com/notacop38/prompthound/blob/main/docs/PRD.md"
 Source = "https://github.com/notacop38/prompthound"
 
-# Only the importable library package is distributed; rules/, generator/, etc.
-# are operational content directories (PRD §14), not part of the wheel.
+# The importable library package plus the pySigma pipelines it drives are
+# distributed (prompthound.convert imports pipelines.*); rules/, generator/, etc.
+# remain operational content directories (PRD §14), not part of the wheel.
 [tool.setuptools]
-packages = ["prompthound"]
+packages = ["prompthound", "pipelines"]
 
 [tool.setuptools.package-data]
 prompthound = ["py.typed"]

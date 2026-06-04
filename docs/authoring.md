@@ -72,6 +72,21 @@ changes Splunk and Sentinel together.
 
 When you reference a schema field in a rule's `detection:`, use the **dotted
 schema name** (e.g. `guardrail.input.categories`); the pipeline handles the
-flattening. The `convert` stage of `scripts/ci.py` regenerates SPL/KQL into
-`out/` and fails the build if any output is empty or not byte-stable across runs
-(the snapshot guarantee, PRD §12).
+flattening.
+
+### Regenerating and snapshotting `out/`
+
+The generated artifacts live in `out/` and are split across two scripts:
+
+- **`python scripts/release.py`** *writes* `out/` — regenerates SPL, KQL, and
+  `savedsearches.conf` for every rule and prunes any stale generated file whose
+  source rule was renamed or removed. Run it after changing a rule, pipeline, or
+  backend pin, and **commit the `out/` diff**.
+- **`scripts/ci.py`'s `convert` stage** is a read-only *check*. It reconverts
+  every rule and fails the build if any output is empty (SPL, KQL, **or**
+  savedsearches), non-byte-stable, missing from `out/`, drifted from `out/`, or
+  if `out/` holds a stale artifact with no current source (the snapshot
+  guarantee, PRD §12). It never rewrites `out/`, so an ephemeral CI run can't
+  hide an uncommitted regeneration.
+
+Both share `scripts/conversion.py` so the generated content is defined once.

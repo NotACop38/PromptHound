@@ -17,10 +17,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# Rules and pipelines live in top-level content directories (PRD §14), not inside
-# the installed wheel. Ensure the repo root is importable so ``import
-# pipelines.*`` resolves whether convert is called from a test, a script, or the
-# REPL.
+# ``pipelines`` is packaged in the wheel (see pyproject), so it imports cleanly
+# when PromptHound is installed. When run from a checkout, add the repo root so
+# ``import pipelines.*`` also resolves from a test, a script, or the REPL.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
