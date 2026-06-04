@@ -98,6 +98,11 @@ class SampleSpec:
     description: str
     positive: tuple[EventSpec, ...]
     negative: tuple[EventSpec, ...]
+    #: Path (relative to ``rules/``) of the shipped Sigma rule these samples
+    #: target, or ``None`` if the rule is not yet shipped. Consumers measuring
+    #: rule-pack recall/demo hits should scope to ``rule is not None`` so a
+    #: signature for an unshipped rule is not counted as a missed detection.
+    rule: str | None = None
 
 
 def _msg(text: str, role: str = "user") -> list[dict[str, Any]]:
@@ -190,6 +195,7 @@ SPECS: tuple[SampleSpec, ...] = (
         owasp="llm07",
         atlas=("aml.t0056",),
         tier="t2",
+        rule="system_prompt_extraction/extract_system_prompt_markers.yml",
         description="System-prompt / instruction extraction markers in input.",
         positive=(
             EventSpec(
@@ -266,8 +272,8 @@ SPECS: tuple[SampleSpec, ...] = (
                     # The signal is the *derived* PII/secret classes and the
                     # abnormal output volume -- NOT raw secrets in the content
                     # (that would violate P1). Output text stays benign.
+                    # total_tokens/cost are recomputed from the trio by _apply.
                     "gen_ai.usage.output_tokens": 6400,
-                    "gen_ai.usage.total_tokens": 6712,
                     "guardrail.output.flagged": True,
                     "guardrail.output.categories": ["pii"],
                     "gen_ai.output.messages": [
@@ -350,15 +356,17 @@ SPECS: tuple[SampleSpec, ...] = (
         owasp="llm10",
         atlas=("aml.t0034", "aml.t0029"),
         tier="t1",
+        rule="dos_cost_abuse/token_cost_spike_per_principal.yml",
         description="DoS / cost-abuse: high-token completion burst from one principal.",
         positive=(
             EventSpec(
                 {
                     "user.id": "u-burst-9001",
                     "event.action": "chat",
+                    # 7200 + 4800 = 12000 total tokens (>= the rule's 8000 floor);
+                    # _apply recomputes the total, cost.usd is set explicitly.
                     "gen_ai.usage.input_tokens": 7200,
                     "gen_ai.usage.output_tokens": 4800,
-                    "gen_ai.usage.total_tokens": 12000,
                     "gen_ai.response.finish_reasons": ["length"],
                     "cost.usd": 0.18,
                 },
@@ -371,9 +379,9 @@ SPECS: tuple[SampleSpec, ...] = (
                 {
                     "user.id": "u-normal-2200",
                     "event.action": "chat",
+                    # 900 + 600 = 1500 total tokens, well under the 8000 floor.
                     "gen_ai.usage.input_tokens": 900,
                     "gen_ai.usage.output_tokens": 600,
-                    "gen_ai.usage.total_tokens": 1500,
                     "gen_ai.response.finish_reasons": ["stop"],
                     "cost.usd": 0.02,
                 },
@@ -457,12 +465,28 @@ def _apply(base: Event, overrides: Mapping[str, Any]) -> Event:
     event = copy.deepcopy(base)
     for key, value in overrides.items():
         event[key] = copy.deepcopy(value)
+    # Keep token-derived fields self-consistent after overlays: total_tokens is
+    # the schema's convenience sum (PRD §10.2), and cost tracks usage unless a
+    # spec sets it explicitly. Without this, an overlay that only bumps
+    # output_tokens (e.g. the exfiltration sample) would leave a stale total/cost
+    # from the random benign base.
+    inp = event.get("gen_ai.usage.input_tokens")
+    out = event.get("gen_ai.usage.output_tokens")
+    if isinstance(inp, int) and isinstance(out, int):
+        event["gen_ai.usage.total_tokens"] = inp + out
+        if "cost.usd" not in overrides:
+            event["cost.usd"] = round((inp + out) * 2.0e-5, 5)
     return event
 
 
 def _build_events(
     specs: Sequence[EventSpec], rng: random.Random, start: dt.datetime
-) -> list[Event]:
+) -> tuple[list[Event], dt.datetime]:
+    """Emit a spec's events from ``start``; return them plus the next free instant.
+
+    Returning the trailing cursor lets the caller lay every sample on a single
+    monotonically advancing timeline so file order == timestamp order.
+    """
     events: list[Event] = []
     cursor = start
     for spec in specs:
@@ -470,7 +494,7 @@ def _build_events(
             base = _benign_base(rng, cursor)
             events.append(_apply(base, spec.overrides))
             cursor += dt.timedelta(seconds=spec.step_seconds)
-    return events
+    return events, cursor
 
 
 # --- dataset assembly ---------------------------------------------------------
@@ -484,6 +508,9 @@ class Sample:
     category: str
     polarity: str  # "benign" | "positive" | "negative"
     events: list[Event] = field(default_factory=list)
+    #: Shipped Sigma rule (relative to ``rules/``) this sample targets, or
+    #: ``None`` for benign traffic and not-yet-shipped rules.
+    rule: str | None = None
 
 
 def build_samples(
@@ -502,17 +529,24 @@ def build_samples(
     rng = random.Random(seed)
     samples: list[Sample] = []
 
-    for i in range(n_benign):
-        start = BASE_TIME + dt.timedelta(minutes=10 * i)
-        samples.append(Sample("benign", "benign", "benign", [_benign_base(rng, start)]))
+    # A single advancing cursor keeps the whole dataset in non-decreasing
+    # timestamp order, so a streaming/replay consumer never sees time go
+    # backwards (each per-rule positive/negative window is also kept disjoint).
+    gap = dt.timedelta(minutes=10)
+    cursor = BASE_TIME
 
-    for s_idx, spec in enumerate(SPECS):
-        pos_start = BASE_TIME + dt.timedelta(hours=1 + s_idx)
-        neg_start = pos_start + dt.timedelta(minutes=30)
-        pos = _build_events(spec.positive, rng, pos_start)
-        neg = _build_events(spec.negative, rng, neg_start)
-        samples.append(Sample(spec.stem, spec.category, "positive", pos))
-        samples.append(Sample(spec.stem, spec.category, "negative", neg))
+    for _ in range(n_benign):
+        samples.append(Sample("benign", "benign", "benign", [_benign_base(rng, cursor)]))
+        cursor += gap
+
+    cursor += gap  # separate the benign window from the signatures
+    for spec in SPECS:
+        pos, cursor = _build_events(spec.positive, rng, cursor)
+        cursor += gap
+        neg, cursor = _build_events(spec.negative, rng, cursor)
+        cursor += gap
+        samples.append(Sample(spec.stem, spec.category, "positive", pos, rule=spec.rule))
+        samples.append(Sample(spec.stem, spec.category, "negative", neg, rule=spec.rule))
 
     if enforce_p1:
         violations = scan_events(list(iter_events(samples)))

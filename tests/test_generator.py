@@ -67,6 +67,43 @@ def test_generator_per_rule_positive_negative_balance() -> None:
         assert counts["negative"] >= 1, f"{stem} missing a negative sample"
 
 
+def test_generator_token_totals_are_consistent() -> None:
+    # total_tokens is the schema's convenience sum; overlays that bump
+    # input/output must not leave it (or cost) stale from the benign base.
+    for event in iter_events(build_samples(seed=5)):
+        inp = event.get("gen_ai.usage.input_tokens")
+        out = event.get("gen_ai.usage.output_tokens")
+        if isinstance(inp, int) and isinstance(out, int):
+            assert event["gen_ai.usage.total_tokens"] == inp + out
+
+
+def test_generator_rule_backed_specs_point_to_shipped_rules() -> None:
+    # Only specs whose `rule` resolves to a shipped Sigma file are safe to count
+    # for rule-pack recall; the rest are forward-looking signatures.
+    shipped = {spec.rule for spec in SPECS if spec.rule}
+    assert shipped == {
+        "system_prompt_extraction/extract_system_prompt_markers.yml",
+        "dos_cost_abuse/token_cost_spike_per_principal.yml",
+    }
+    for spec in SPECS:
+        if spec.rule:
+            assert (RULES_DIR / spec.rule).is_file(), f"{spec.stem} -> missing rule {spec.rule}"
+    # The rule label propagates to the emitted samples.
+    for sample in build_samples(seed=0):
+        if sample.polarity == "benign":
+            assert sample.rule is None
+        else:
+            spec = next(s for s in SPECS if s.stem == sample.stem)
+            assert sample.rule == spec.rule
+
+
+def test_generator_events_are_in_timestamp_order() -> None:
+    # File order must equal chronological order so a streaming/replay consumer
+    # never sees time move backwards. Fixed-format ISO-8601 Z sorts lexically.
+    times = [e["timestamp"] for e in iter_events(build_samples(seed=0, n_benign=8))]
+    assert times == sorted(times), "dataset timestamps must be non-decreasing in file order"
+
+
 def test_generator_mixes_in_benign_traffic() -> None:
     samples = build_samples(seed=0, n_benign=5)
     benign = [s for s in samples if s.polarity == "benign"]
@@ -123,12 +160,12 @@ def test_generator_p1_violation_raises_in_build(monkeypatch: pytest.MonkeyPatch)
     real_build = generator._build_events
 
     def poisoned(specs, rng, start):  # type: ignore[no-untyped-def]
-        events = real_build(specs, rng, start)
+        events, cursor = real_build(specs, rng, start)
         if events:
             events[0]["gen_ai.input.messages"] = [
                 {"role": "user", "parts": ["please run os.system('whoami')"]}
             ]
-        return events
+        return events, cursor
 
     monkeypatch.setattr(generator, "_build_events", poisoned)
     with pytest.raises(P1Violation):
