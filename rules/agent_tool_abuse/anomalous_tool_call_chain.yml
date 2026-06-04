@@ -42,6 +42,10 @@ author: PromptHound contributors
 date: 2026-06-04
 tags:
   - owasp-llm.llm06
+  # OWASP Agentic AI — Threats and Mitigations (secondary mapping, PRD D6):
+  # abusing integrated tools to read a sensitive source then egress it — T2 Tool
+  # Misuse.
+  - owasp-agentic.t02
   # ATLAS v5.1.0 (Nov 2025) added tactic AML.TA0015 (Command and Control); the
   # tool-invocation technique is AML.T0085.001 (AI Agent Tools).
   - attack.atlas.aml.ta0015

@@ -21,8 +21,8 @@
   .stat .l { color: var(--muted); font-size: .78rem; text-transform: uppercase;
              letter-spacing: .04em; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .6rem; }
-  .cell { border: 1px solid #e2e6ea; border-radius: 10px; padding: .7rem .8rem; background: var(--miss);
-          opacity: .65; }
+  .cell { border: 1px solid #e2e6ea; border-radius: 10px; padding: .7rem .8rem;
+          background: var(--miss); opacity: .65; }
   .cell.covered { background: var(--ok-bg); border-color: #bcd8f5; opacity: 1; }
   .cell .id { font-weight: 700; font-size: .82rem; }
   .cell .nm { font-size: .82rem; color: var(--ink); }
@@ -52,6 +52,8 @@
       <div class="l">OWASP covered</div></div>
     <div class="stat"><div class="n">10</div>
       <div class="l">ATLAS mapped</div></div>
+    <div class="stat"><div class="n">3/15</div>
+      <div class="l">Agentic mapped</div></div>
   </div>
 
   <h2>OWASP LLM Top 10 (2025)</h2>
@@ -170,6 +172,26 @@
       <td><code>T1059</code></td><td>Command and Scripting Interpreter</td>
       <td><span class="pill">1</span></td>
       <td><code>insecure_output/unsanitized_output_to_sink.yml</code><br></td>
+    </tr>
+  </table>
+
+  <h2>OWASP Agentic AI — Threats and Mitigations <span class="pill">secondary</span></h2>
+  <table>
+    <tr><th>ID</th><th>Threat</th><th>Rules</th><th>Rule files</th></tr>
+    <tr>
+      <td><code>T2</code></td><td>Tool Misuse</td>
+      <td><span class="pill">1</span></td>
+      <td><code>agent_tool_abuse/anomalous_tool_call_chain.yml</code><br></td>
+    </tr>
+    <tr>
+      <td><code>T3</code></td><td>Privilege Compromise</td>
+      <td><span class="pill">1</span></td>
+      <td><code>agent_tool_abuse/denied_tool_retry_loop.yml</code><br></td>
+    </tr>
+    <tr>
+      <td><code>T4</code></td><td>Resource Overload</td>
+      <td><span class="pill">1</span></td>
+      <td><code>agent_tool_abuse/tool_call_amplification_loop.yml</code><br></td>
     </tr>
   </table>
 

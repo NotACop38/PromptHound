@@ -1,6 +1,6 @@
 # PromptHound — Product Requirements Document
 
-> **Status:** Draft v0.1 · **Type:** Source of truth · **Last updated:** 2026-06-03
+> **Status:** Draft v0.1 · **Type:** Source of truth · **Last updated:** 2026-06-04
 > This document and `CHECKLIST.md` are the canonical reference for PromptHound. Update them when a decision changes; do not let code drift from them silently.
 
 ---
@@ -148,10 +148,12 @@ Restates **P1**. Locked as a design rule.
 - **Sentinel:** **`pySigma-backend-kusto`** (target `kusto`) using the **`sentinelasim`** pipeline (or `azure_monitor`). **There is no `pysigma-backend-sentinel`.**
 - **Version discipline:** pySigma **1.0.0** introduced breaking changes (factory-pattern pipelines). Pin everything in a lockfile.
 
+### Resolved (were open)
+- **[DECIDED] D6 — OWASP Agentic AI mapping.** Agent rules (`rules/agent_tool_abuse/`) carry a **secondary** `owasp-agentic.tNN` tag against the *OWASP Agentic AI — Threats and Mitigations* taxonomy (T1–T15). The metadata gate requires it for agent rules and the coverage map renders an Agentic section; the OWASP LLM Top 10 remains the **primary** user-facing taxonomy. (Catalog in `coverage/build_coverage.py`; re-verify ids at author time.)
+- **[DECIDED] D7 — Licensing.** Code & docs under **Apache-2.0** (`LICENSE`, `NOTICE`); detection content — the rules under `rules/` and the SPL/KQL generated from them under `out/` — under **DRL 1.1** (`LICENSE-RULES`). The distributed wheel is code only, so it is Apache-2.0.
+- **[DECIDED] D8 — Packaging of generated content.** A versioned, byte-reproducible **raw-query bundle** ships now via `scripts/release.py` (`out/dist/prompthound-detections-<version>.tar.gz`: SPL + KQL + coverage + a `MANIFEST.json` with a per-file sha256 + the licenses). Deployable per-SIEM packaging (a Splunk app / Sentinel ARM template) remains a documented fast-follow.
+
 ### Open decisions
-- **[OPEN] D6 — Also map the OWASP "Top 10 for Agentic Applications"?** *Recommendation:* secondary mapping field for agent rules.
-- **[OPEN] D7 — Licensing.** *Recommendation:* code under **Apache-2.0**; rules under **DRL 1.1**.
-- **[OPEN] D8 — Packaging of generated content.** Raw queries for v1; deployable packaging fast-follow.
 - **[OPEN] D9 — Name check.** Confirm "PromptHound" is clear on PyPI + GitHub.
 
 ---
@@ -367,10 +369,16 @@ Components:
 ```
 prompthound/
 ├── README.md
-├── LICENSE                     # [OPEN] Apache-2.0 (+ DRL for rules?)
+├── LICENSE                     # Apache-2.0 (code & docs)
+├── LICENSE-RULES               # DRL 1.1 (detection content: rules/ + generated out/)
+├── NOTICE                      # attribution + the dual-license note (D7)
+├── CONTRIBUTING.md             # authoring standard + P1–P4 + the merge gate
+├── CHANGELOG.md
 ├── pyproject.toml
-├── requirements.lock
+├── requirements.lock           # pinned runtime deps (audited by the security stage)
+├── requirements-dev.lock       # pinned local-CI toolchain (ruff/mypy/pytest/…)
 ├── Makefile
+├── .github/                    # issue forms (incl. metadata-enforcing "new rule") + PR templates
 ├── docs/
 │   ├── PRD.md
 │   ├── CHECKLIST.md
@@ -400,8 +408,8 @@ prompthound/
 │   └── run_demo.py
 ├── scripts/
 │   ├── ci.py                   # local CI runner (no hosted CI)
-│   └── release.py              # local CD: regenerate outputs into out/
-└── out/                        # generated SPL/KQL/coverage artifacts
+│   └── release.py              # local CD: regenerate out/ + stamp a versioned bundle
+└── out/                        # generated SPL/KQL/coverage (committed) + dist/ bundles (git-ignored)
 ```
 
 ---

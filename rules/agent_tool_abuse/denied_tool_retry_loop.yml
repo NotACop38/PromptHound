@@ -57,6 +57,10 @@ author: PromptHound contributors
 date: 2026-06-04
 tags:
   - owasp-llm.llm06
+  # OWASP Agentic AI — Threats and Mitigations (secondary mapping, PRD D6):
+  # retrying a tool the policy keeps refusing, probing for a way past the
+  # guardrail — T3 Privilege Compromise.
+  - owasp-agentic.t03
   - attack.atlas.aml.ta0015
   - attack.atlas.aml.t0085.001
   - prompthound.tier.t1

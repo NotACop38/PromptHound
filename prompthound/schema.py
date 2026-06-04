@@ -44,7 +44,8 @@ def load_schema(path: Path | None = None) -> dict[str, Any]:
     which is **not** bundled into the wheel -- ``pyproject.toml`` ships only the
     importable library, leaving operational dirs out. So this resolves against a
     source checkout. Wheel-install support would mean packaging the schema as
-    package data, which is deferred to the open packaging decision D8 (PRD §9).
+    package data, part of the deployable-packaging fast-follow of decision D8
+    (PRD §9; the v1 release bundle ships generated queries, not the wheel).
     Until then, a missing file raises an actionable error rather than a bare
     ``FileNotFoundError``.
     """
@@ -54,8 +55,8 @@ def load_schema(path: Path | None = None) -> dict[str, Any]:
             f"Audit-log schema not found at {schema_path}. "
             "prompthound.schema currently resolves the schema from a source "
             "checkout (the canonical schema/ dir is not packaged into the wheel; "
-            "see PRD §14 and open decision D8). Run from a source tree, or pass an "
-            "explicit path=."
+            "see PRD §14 and the D8 packaging fast-follow). Run from a source tree, "
+            "or pass an explicit path=."
         )
     with open(schema_path, encoding="utf-8") as handle:
         data: dict[str, Any] = json.load(handle)

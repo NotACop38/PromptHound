@@ -8,8 +8,11 @@ version = "0.1.0"
 description = "Open-source, defensive SIEM detection library for attacks against LLM apps and AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
-# license: pending decision D7 (PRD §9). Recommended (not yet ratified):
-# Apache-2.0 for code, DRL 1.1 for detection content. See LICENSE.
+# Dual-licensed per decision D7 (PRD §9). The distributed package is code only
+# (prompthound + pipelines; see [tool.setuptools] below) and is Apache-2.0. The
+# detection content under rules/ — not packaged into the wheel — is DRL 1.1.
+# See LICENSE, LICENSE-RULES, and NOTICE.
+license = { text = "Apache-2.0" }
 authors = [{ name = "PromptHound contributors" }]
 keywords = [
   "siem",
@@ -24,6 +27,7 @@ keywords = [
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Information Technology",
+  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Topic :: Security",

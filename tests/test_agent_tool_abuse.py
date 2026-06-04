@@ -18,8 +18,8 @@ Correlations reuse it for the *base* detection, then apply the windowed group-by
 count the single-event matcher can't express (same approach as
 ``test_dos_cost_abuse.py``). Conversion is checked through the real toolchain.
 
-D6 (OWASP Agentic Top 10 secondary tag) is still ``[OPEN]`` in CHECKLIST, so no
-``owasp-agentic`` tag is claimed here.
+D6 (OWASP Agentic Top 10 secondary tag) is decided: each agent rule carries its
+secondary ``owasp-agentic.tNN`` mapping, asserted below and gated in coverage.
 
 Run just these with ``pytest -k agent -q``.
 """
@@ -254,8 +254,17 @@ def test_agent_rules_are_tier1_only(stem: str) -> None:
         assert f"{content_field}|" not in text and f"{content_field}:" not in text
 
 
+# D6 (OWASP Agentic Top 10 secondary tag) is approved: each agent rule carries
+# exactly its secondary owasp-agentic.tNN mapping (PRD D6, decided).
+_EXPECTED_AGENTIC = {
+    CHAIN: "owasp-agentic.t02",  # T2 Tool Misuse (sensitive read -> external egress)
+    DENIED: "owasp-agentic.t03",  # T3 Privilege Compromise (probing past denials)
+    AMP: "owasp-agentic.t04",  # T4 Resource Overload (tool-call amplification)
+}
+
+
 @pytest.mark.parametrize("stem", AGENT_RULES)
-def test_agent_rules_have_no_agentic_tag_until_d6(stem: str) -> None:
-    # D6 (OWASP Agentic Top 10 secondary tag) is still [OPEN]; do not claim it.
+def test_agent_rules_carry_secondary_agentic_tag(stem: str) -> None:
+    # D6 approved: every agent rule declares its secondary OWASP Agentic mapping.
     text = (RULES_DIR / f"{stem}.yml").read_text()
-    assert "owasp-agentic" not in text
+    assert _EXPECTED_AGENTIC[stem] in text

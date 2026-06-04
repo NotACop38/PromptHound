@@ -89,11 +89,10 @@ def kusto_backend(
     flavour: KustoFlavour = "sentinelasim",
 ) -> KustoBackend:
     """Return a Kusto backend (target ``kusto``) wired to the PromptHound pipeline."""
-    # KustoBackend accepts a ProcessingPipeline at runtime (its __init__ first arg);
-    # pinned pysigma-backend-kusto's stub mistypes the keyword, so ignore here.
-    return KustoBackend(
-        processing_pipeline=prompthound_kusto_pipeline(query_table, flavour)  # type: ignore[arg-type]
-    )
+    pipeline = prompthound_kusto_pipeline(query_table, flavour)
+    # KustoBackend accepts a ProcessingPipeline at runtime (its __init__ first arg),
+    # but the pinned pysigma-backend-kusto stub mistypes the keyword as a dict.
+    return KustoBackend(processing_pipeline=pipeline)  # type: ignore[arg-type]
 
 
 __all__ = [
