@@ -1,0 +1,1 @@
+output_rendered_unsanitized=true output_sink IN ("sql_exec", "shell_exec", "html_render", "code_eval")

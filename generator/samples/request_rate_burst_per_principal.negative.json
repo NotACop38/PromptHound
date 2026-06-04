@@ -1,0 +1,202 @@
+[
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:00Z",
+    "event.id": "rate-neg-00",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-00",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:05Z",
+    "event.id": "rate-neg-01",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-01",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:10Z",
+    "event.id": "rate-neg-02",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-02",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:15Z",
+    "event.id": "rate-neg-03",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-03",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:20Z",
+    "event.id": "rate-neg-04",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-04",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:25Z",
+    "event.id": "rate-neg-05",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-05",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:30Z",
+    "event.id": "rate-neg-06",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-06",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:35Z",
+    "event.id": "rate-neg-07",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-07",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:40Z",
+    "event.id": "rate-neg-08",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-08",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T15:00:45Z",
+    "event.id": "rate-neg-09",
+    "event.action": "chat",
+    "event.outcome": "success",
+    "gen_ai.conversation.id": "conv-ratn-09",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "support-copilot",
+    "app.env": "prod",
+    "user.id": "u-rate-norm-7002",
+    "gen_ai.usage.input_tokens": 200,
+    "gen_ai.usage.output_tokens": 120,
+    "gen_ai.response.finish_reasons": [
+      "stop"
+    ],
+    "gen_ai.usage.total_tokens": 320,
+    "cost.usd": 0.0064
+  }
+]

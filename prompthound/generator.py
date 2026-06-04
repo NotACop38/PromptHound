@@ -391,11 +391,104 @@ SPECS: tuple[SampleSpec, ...] = (
         ),
     ),
     SampleSpec(
+        # Matches the real selection rule rules/dos_cost_abuse/oversized_max_tokens.yml.
+        stem="oversized_max_tokens",
+        category="dos_cost_abuse",
+        owasp="llm10",
+        atlas=("aml.t0034", "aml.t0029"),
+        tier="t1",
+        rule="dos_cost_abuse/oversized_max_tokens.yml",
+        description="DoS / cost-abuse: a single request demanding an oversized output budget.",
+        positive=(
+            EventSpec(
+                {
+                    "user.id": "u-dow-5001",
+                    "event.action": "chat",
+                    "gen_ai.request.max_tokens": 200000,
+                    "gen_ai.response.finish_reasons": ["length"],
+                }
+            ),
+        ),
+        negative=(
+            EventSpec(
+                {
+                    "user.id": "u-norm-5002",
+                    "event.action": "chat",
+                    "gen_ai.request.max_tokens": 4096,
+                }
+            ),
+        ),
+    ),
+    SampleSpec(
+        # Matches the real correlation rule rules/dos_cost_abuse/request_rate_…;
+        # the positive is a per-principal burst (count > 1) that crosses the
+        # windowed request-count threshold, the negative stays under it.
+        stem="request_rate_burst_per_principal",
+        category="dos_cost_abuse",
+        owasp="llm10",
+        atlas=("aml.t0029", "aml.t0034"),
+        tier="t1",
+        rule="dos_cost_abuse/request_rate_burst_per_principal.yml",
+        description="DoS / cost-abuse: high-frequency completion burst from one principal.",
+        positive=(
+            EventSpec(
+                {"user.id": "u-rate-7001", "event.action": "chat"},
+                count=20,
+                step_seconds=2,
+            ),
+        ),
+        negative=(
+            EventSpec(
+                {"user.id": "u-rate-norm-7002", "event.action": "chat"},
+                count=10,
+                step_seconds=5,
+            ),
+        ),
+    ),
+    SampleSpec(
+        # Matches the real correlation rule rules/dos_cost_abuse/repeated_length_…;
+        # the burst shares one conversation id so the per-conversation windowed
+        # count of `length` truncations crosses the threshold.
+        stem="repeated_length_finish_loops",
+        category="dos_cost_abuse",
+        owasp="llm10",
+        atlas=("aml.t0034", "aml.t0029"),
+        tier="t1",
+        rule="dos_cost_abuse/repeated_length_finish_loops.yml",
+        description="DoS / cost-abuse: repeated length-truncated completions in one conversation.",
+        positive=(
+            EventSpec(
+                {
+                    "gen_ai.conversation.id": "conv-loop-3001",
+                    "event.action": "chat",
+                    "gen_ai.usage.output_tokens": 4096,
+                    "gen_ai.response.finish_reasons": ["length"],
+                },
+                count=6,
+                step_seconds=30,
+            ),
+        ),
+        negative=(
+            EventSpec(
+                {
+                    "gen_ai.conversation.id": "conv-loop-norm-3002",
+                    "event.action": "chat",
+                    "gen_ai.usage.output_tokens": 4096,
+                    "gen_ai.response.finish_reasons": ["length"],
+                },
+                count=4,  # under the rule's threshold of 5
+                step_seconds=30,
+            ),
+        ),
+    ),
+    SampleSpec(
+        # Matches the real selection rule rules/insecure_output/unsanitized_output_to_sink.yml.
         stem="unsanitized_sink",
         category="insecure_output",
         owasp="llm05",
-        atlas=(),
+        atlas=(),  # LLM05 has no native ATLAS technique (PRD §11).
         tier="t1",
+        rule="insecure_output/unsanitized_output_to_sink.yml",
         description="Insecure output handling: model output reaches a dangerous sink unsanitized.",
         positive=(
             EventSpec(

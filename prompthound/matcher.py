@@ -36,6 +36,7 @@ from sigma.conditions import (
 )
 from sigma.rule import SigmaRule
 from sigma.types import (
+    SigmaBool,
     SigmaCompareExpression,
     SigmaNull,
     SigmaNumber,
@@ -106,6 +107,11 @@ def _match_field(field: str, value: object, event: Event) -> bool:
 
 
 def _match_value(value: object, candidate: object) -> bool:
+    if isinstance(value, SigmaBool):
+        # ``field: true|false`` -- match only a real JSON boolean of the same
+        # value. ``candidate is True/False`` (not ``==``) so the int 1/0 a
+        # numeric field might carry never satisfies a boolean comparison.
+        return isinstance(candidate, bool) and candidate is value.boolean
     if isinstance(value, SigmaString):
         return _match_string(value, _as_text(candidate))
     if isinstance(value, SigmaNumber):
