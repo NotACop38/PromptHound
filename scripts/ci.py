@@ -16,6 +16,7 @@ current scaffold while keeping the remaining gaps visible.
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+SAMPLES_DIR = REPO_ROOT / "generator" / "samples"
 BAR = "=" * 72
 
 
@@ -44,6 +46,38 @@ def run_command(cmd: list[str]) -> bool:
 def tool(name: str, *args: str) -> Callable[[], bool]:
     """Build a stage that runs an external dev tool by name (resolved on PATH)."""
     return lambda: run_command([name, *args])
+
+
+def schema_validate() -> bool:
+    """Validate every generator/samples/*.json event against the audit-log schema.
+
+    Both §10.9 example events ship as sample files; the malicious one is a P1
+    marker phrase, not a working exploit (PRD §8). Conformance is the gate here,
+    not detection -- whether a rule *fires* on a sample is the rule fire/silence
+    stage's job.
+    """
+    sys.path.insert(0, str(REPO_ROOT))
+    from prompthound.schema import load_schema, validate_event
+
+    schema = load_schema()
+    samples = sorted(SAMPLES_DIR.glob("*.json"))
+    if not samples:
+        print(f"  no sample events found under {SAMPLES_DIR.relative_to(REPO_ROOT)}/")
+        return False
+
+    ok = True
+    for path in samples:
+        event = json.loads(path.read_text(encoding="utf-8"))
+        errors = validate_event(event, schema)
+        rel = path.relative_to(REPO_ROOT)
+        if errors:
+            ok = False
+            print(f"  INVALID  {rel}")
+            for error in errors:
+                print(f"      - {error}")
+        else:
+            print(f"  ok       {rel}")
+    return ok
 
 
 def placeholder(note: str) -> Callable[[], bool]:
@@ -68,11 +102,7 @@ STAGES: list[Stage] = [
     Stage("ruff format --check", tool("ruff", "format", "--check", ".")),
     Stage("ruff check", tool("ruff", "check", ".")),
     Stage("mypy prompthound", tool("mypy", "prompthound")),
-    Stage(
-        "schema-validate",
-        placeholder("validate generator samples against schema/ -- Phase 1 (PRD §16)."),
-        is_placeholder=True,
-    ),
+    Stage("schema-validate", schema_validate),
     Stage(
         "convert (SPL + KQL snapshot)",
         placeholder("pySigma conversion + snapshot test -- Phase 1/2 (PRD §16, D5)."),
