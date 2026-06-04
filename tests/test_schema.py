@@ -12,6 +12,8 @@ import copy
 import json
 from pathlib import Path
 
+import pytest
+
 from prompthound.schema import is_valid, load_schema, validate_event
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -75,6 +77,12 @@ def test_schema_loads_and_is_2020_12() -> None:
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert "schema_version" in schema["properties"]
     assert "schema_version" in schema["required"]
+
+
+def test_missing_schema_file_raises_actionable_error(tmp_path: Path) -> None:
+    missing = tmp_path / "does_not_exist.schema.json"
+    with pytest.raises(FileNotFoundError, match="source checkout"):
+        load_schema(missing)
 
 
 def test_benign_example_validates() -> None:
