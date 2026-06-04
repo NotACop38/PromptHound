@@ -1,0 +1,91 @@
+# PromptHound — Agent tool-abuse detection.
+# PRD §11 rule #6 (Agent tool-abuse: LLM06 Excessive Agency / ATLAS AML.TA0015
+# Command and Control + AML.T0085.001 AI Agent Tools). A single-event selection
+# rule keyed on the always-on tool-call *chain* metadata: one agent turn whose
+# ordered `tool.call.chain` combines a privileged/sensitive-source read with an
+# external egress sink — the read-then-exfiltrate adjacency behind agent
+# data-exfiltration via tool calls (EchoLeak / CurXecute class).
+#
+# Tier 1 (PRD §10.5): keys only on `tool.call.chain` (T1 tool-call metadata) +
+# `event.action`. No tool arguments or results (the T2 fields) are inspected, so
+# it deploys broadly and privacy-cheaply (PRD §8 P4, §15 "prefer Tier-1 where
+# equivalent"). A tighter args-aware variant would be Tier-2.
+#
+# P1 (PRD §8): the rule keys on a disallowed *combination of tool categories*
+# within one turn's chain — a log signature of an exfiltration sequence — not on
+# any working exploit. The tool names below are representative category markers;
+# operators map them to their own agent's tool inventory.
+#
+# Sample spec: generator/samples/anomalous_tool_call_chain.{positive,negative}.json
+title: Anomalous agent tool-call chain (sensitive read into external egress)
+id: 2f8b1d4c-6e3a-4c1b-9d72-7a4e5f0c8b21
+status: experimental
+description: |
+  Detects a single agent turn whose ordered tool-call chain combines a
+  privileged / sensitive-source read tool (file, database, secrets, mailbox …)
+  with an external egress / send tool (outbound HTTP, email, upload, webhook …)
+  — the read-then-exfiltrate adjacency at the heart of OWASP LLM06:2025
+  (Excessive Agency) agent abuse and MITRE ATLAS AML.TA0015 (Command and
+  Control) via AML.T0085.001 (AI Agent Tools). Each individual tool call may be
+  authorized; the disallowed *combination* in one chain is the signal.
+
+  Tier-1: keys only on the always-on `tool.call.chain` metadata and
+  `event.action`; no tool arguments or results are required. The chain must
+  contain both a sensitive-source read marker and an external-egress marker for
+  the rule to fire.
+references:
+  - https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+  - https://atlas.mitre.org/tactics/AML.TA0015
+  - https://atlas.mitre.org/techniques/AML.T0085
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-32711
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm06
+  # ATLAS v5.1.0 (Nov 2025) added tactic AML.TA0015 (Command and Control); the
+  # tool-invocation technique is AML.T0085.001 (AI Agent Tools).
+  - attack.atlas.aml.ta0015
+  - attack.atlas.aml.t0085.001
+  - prompthound.tier.t1
+logsource:
+  product: llm_gateway
+  # Audit-log schema: docs/PRD.md §10.5 (Agent / tool-call).
+detection:
+  tool_turn:
+    event.action:
+      - execute_tool
+      - invoke_agent
+  # A privileged / sensitive-source read somewhere in the turn's chain.
+  sensitive_source:
+    tool.call.chain|contains:
+      - 'read_file'
+      - 'fs.read'
+      - 'db.query'
+      - 'sql.query'
+      - 'secrets.get'
+      - 'vault.read'
+      - 'kv.get'
+      - 'read_email'
+      - 'inbox.read'
+      - 'get_credentials'
+  # An external egress / send tool somewhere in the same chain.
+  external_sink:
+    tool.call.chain|contains:
+      - 'send_email'
+      - 'http.post'
+      - 'http.request'
+      - 'fetch_url'
+      - 'upload_file'
+      - 'post_webhook'
+      - 'slack.post'
+      - 'sftp.put'
+  condition: tool_turn and sensitive_source and external_sink
+falsepositives:
+  - Legitimate automation that reads internal data and then notifies an external
+    channel by design (e.g. read a database row, post a status to Slack) — scope
+    by app.name / gen_ai.agent.name, or allowlist the specific chain.
+  - ETL / sync agents whose normal job is read-here, write-there; baseline the
+    expected chains per agent and alert only on out-of-baseline combinations.
+  - Coarse tool naming where one tool both reads and sends (review the agent's
+    tool inventory and refine the marker lists to its actual tools).
+level: high

@@ -1,0 +1,86 @@
+# PromptHound — Agent tool-abuse → resource amplification.
+# PRD §11 rule #6 (Agent tool-abuse) tying into rule #7 (LLM10 Unbounded
+# Consumption). A Sigma *correlation* rule: a single conversation issuing an
+# abnormally high number of tool calls in a short window — a runaway agent /
+# tool-calling chain that fans out and amplifies downstream resource and cost
+# consumption (each tool call is itself an API hit and often another model turn).
+#
+# Real-world anchor: CurXecute (CVE-2025-54135 / CVE-2025-54136, Cursor MCP),
+# where a poisoned MCP context drives the agent into attacker-chosen tool
+# invocations — the same self-driving tool-chain behaviour this rule's volume
+# signal catches (PRD §11 anchors).
+#
+# Tier 1 (PRD §10.2/§10.5): keys only on `event.action` + the conversation id;
+# no tool arguments or results (the T2 fields), no prompt/response content
+# (PRD §8 P4). See docs/authoring.md for the KQL aggregation workaround (the
+# Kusto backend does not emit Sigma correlations).
+#
+# P1 (PRD §8): keys on tool-call *volume* per conversation — a log signature of
+# an amplification loop — never on a working exploit.
+#
+# Sample spec: generator/samples/tool_call_amplification_loop.{positive,negative}.json
+---
+title: Agent tool invocation (amplification building block)
+name: agent_tool_invocation
+id: 7e0c5a93-2b14-4d6f-8a07-3c9e1b6d4f25
+status: experimental
+description: >
+  A single agent tool invocation. On its own this is ordinary agent activity;
+  the correlation rule below turns an abnormally high number of them in one
+  conversation into a tool-chain amplification alert.
+logsource:
+  product: llm_gateway
+detection:
+  tool_call:
+    event.action:
+      - execute_tool
+      - invoke_agent
+  condition: tool_call
+---
+title: Resource-amplifying agent tool-call chain per conversation
+id: 1d6f3b08-9c47-4a2e-8b51-5e2a7c0d9f84
+status: experimental
+description: >
+  Detects a single conversation (gen_ai.conversation.id) issuing an abnormally
+  high number of tool calls within a short window — the log signature of a
+  runaway agent or tool-calling chain that fans out and amplifies downstream
+  resource and cost consumption (each tool call is an API hit and frequently
+  another model turn). Bridges OWASP LLM06:2025 (Excessive Agency) and
+  LLM10:2025 (Unbounded Consumption) and maps to MITRE ATLAS AML.TA0015
+  (Command and Control) with AML.T0034 (Cost Harvesting) / AML.T0029 (Denial of
+  ML Service). Aggregation is per-conversation over a sliding 2-minute window;
+  the alert is the tool-call count crossing a threshold. See docs/authoring.md
+  for the KQL aggregation workaround (the Kusto backend does not emit Sigma
+  correlations).
+references:
+  - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
+  - https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+  - https://atlas.mitre.org/tactics/AML.TA0015
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-54135
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-54136
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm10
+  - owasp-llm.llm06
+  - attack.atlas.aml.ta0015
+  - attack.atlas.aml.t0034
+  - attack.atlas.aml.t0029
+  - prompthound.tier.t1
+correlation:
+  type: event_count
+  rules:
+    - agent_tool_invocation
+  group-by:
+    - gen_ai.conversation.id
+  timespan: 2m
+  condition:
+    gte: 15
+falsepositives:
+  - Legitimately tool-heavy agents (research, data-pipeline, multi-step planning)
+    whose normal turn fans out across many tools — baseline the expected tool
+    volume per agent and scope by app.name / gen_ai.agent.name, or raise the
+    threshold for known high-fan-out workflows.
+  - Batch / backfill jobs under one conversation id that intentionally drive many
+    tool calls (filter by app.env or service principal).
+level: medium
