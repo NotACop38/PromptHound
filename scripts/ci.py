@@ -149,6 +149,30 @@ def convert_stage() -> bool:
     return ok
 
 
+# --- coverage-build stage (PRD §16, CHECKLIST Phase 4) ------------------------
+#
+# Unlike the read-only convert snapshot check, this stage *regenerates* the
+# OWASP x ATLAS coverage map into out/coverage/ from rule metadata only. It fails
+# on any build error -- a missing required tag (OWASP + tier + technique mapping)
+# or an unknown/un-catalogued tag -- so the map can never silently go stale.
+
+
+def coverage_build_stage() -> bool:
+    """Regenerate the coverage map into out/coverage/; fail on missing/unknown tags."""
+    from coverage.build_coverage import OUT_DIR as COVERAGE_OUT_DIR
+    from coverage.build_coverage import generate_artifacts, write_artifacts
+
+    artifacts, errors = generate_artifacts()
+    if errors:
+        for error in errors:
+            print(f"  [FAIL] {error}")
+        return False
+    write_artifacts(artifacts)
+    for path in sorted(artifacts):
+        print(f"  [ ok ] out/{path.relative_to(COVERAGE_OUT_DIR.parent)}")
+    return True
+
+
 @dataclass(frozen=True)
 class Stage:
     name: str
@@ -164,11 +188,7 @@ STAGES: list[Stage] = [
     Stage("schema-validate", schema_validate),
     Stage("convert (SPL + KQL snapshot)", convert_stage),
     Stage("pytest", tool("pytest", "-q")),
-    Stage(
-        "coverage-build",
-        placeholder("regenerate OWASP x ATLAS coverage map -- Phase 4 (PRD §16)."),
-        is_placeholder=True,
-    ),
+    Stage("coverage-build", coverage_build_stage),
     Stage(
         "security",
         placeholder("defensive-posture / P1 signature checks -- Phase 6 (PRD §8)."),
