@@ -1,0 +1,75 @@
+# PromptHound — System-prompt / instruction extraction, SUCCESS variant.
+# PRD §11 rule #3 (LLM07 System Prompt Leakage). The sibling rule
+# (extract_system_prompt_markers.yml) fires on the extraction *attempt* in the
+# INPUT; this one fires on the *success* — when the model's OUTPUT actually
+# echoes the hidden system instructions back to the user. One rule = one
+# behavior: a confirmed leak in the response.
+#
+# Tiering (PRD §10.8 / D4 bridge): the privacy-preserving derived boolean
+# content.output.contains_system_prompt lets this run as a Tier-1 detection
+# without persisting raw text; the optional Tier-2 selection on
+# gen_ai.output.messages corroborates with recognizable system-prompt-echo
+# signatures. The two are OR-ed so the rule degrades gracefully to Tier-1 where
+# output content is not stored. P1: the echo phrases are generalizable log
+# signatures of a recited system prompt, not a payload set.
+#
+# Sample spec: generator/samples/system_prompt_leaked_in_output.{positive,negative}.json
+---
+title: System Prompt Leaked in LLM Output (extraction success)
+id: 05450153-9a94-4bbb-bae5-c9ba47c92f4f
+status: experimental
+description: |
+  Detects a successful system-prompt / instruction extraction: the model's
+  response echoes its hidden system instructions back to the user. Fires when
+  the gateway's derived marker content.output.contains_system_prompt is true
+  (Tier-1 bridge, PRD §10.8) OR an output message carries a recognizable
+  system-prompt-echo signature (Tier-2 content inspection).
+
+  This is the success counterpart to extract_system_prompt_markers.yml (which
+  catches the attempt in the input). Confirming the leak in the output is high
+  fidelity and supports incident response: the secret is already out.
+
+  Maps to OWASP LLM07:2025 (System Prompt Leakage) and ATLAS AML.T0056
+  (LLM Meta Prompt Extraction). P1 note: the echo phrases are generalizable
+  signatures of a model reciting its own instructions, not a curated payload.
+references:
+  - https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
+  - https://atlas.mitre.org/techniques/AML.T0056
+  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+author: PromptHound contributors
+date: 2026-06-04
+tags:
+  - owasp-llm.llm07
+  - attack.atlas.aml.t0056
+  - prompthound.tier.t1
+  - prompthound.tier.t2
+logsource:
+  product: llm_gateway
+  # Audit-log schema: docs/PRD.md §10 (LLM Gateway / Agent Audit Log).
+detection:
+  leaked_marker:
+    # Derived Tier-1 marker (PRD §10.8): the gateway scored the output as
+    # echoing the system instructions. Runs without persisting raw text.
+    content.output.contains_system_prompt: true
+  leaked_in_output_text:
+    # Tier-2 content inspection: the response recites its own hidden
+    # instructions. Generalizable echo signatures, not exploit payloads (P1).
+    gen_ai.output.messages|contains:
+      - 'you are a helpful assistant'
+      - 'my system prompt'
+      - 'my system instructions'
+      - 'my initial instructions'
+      - 'here are my instructions'
+      - 'the system prompt is'
+      - 'my instructions are'
+      - 'i was instructed to'
+  condition: leaked_marker or leaked_in_output_text
+falsepositives:
+  - Developers, red-teamers, or security researchers reviewing their own
+    application's prompt during authorized testing.
+  - Assistants that intentionally and safely disclose a public, non-sensitive
+    portion of their system prompt (e.g. a documented persona blurb).
+  - Conversations that legitimately quote the phrase "you are a helpful
+    assistant" while discussing prompt engineering (tune/remove that marker, or
+    rely on the derived contains_system_prompt boolean alone).
+level: high
