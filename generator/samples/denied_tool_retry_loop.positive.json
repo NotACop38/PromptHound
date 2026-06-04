@@ -1,0 +1,74 @@
+[
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T18:10:00Z",
+    "event.id": "6a000010-0000-4a00-8000-000000000010",
+    "event.action": "execute_tool",
+    "event.outcome": "blocked",
+    "gen_ai.conversation.id": "conv-agent-6002",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "ops-agent",
+    "app.env": "prod",
+    "user.id": "u-agent-6002",
+    "gen_ai.agent.id": "agent-ops-1",
+    "gen_ai.agent.name": "ops-assistant",
+    "gen_ai.tool.type": "function",
+    "gen_ai.tool.name": "secrets.get",
+    "gen_ai.tool.call.id": "call-10",
+    "tool.call.depth": 1,
+    "tool.call.chain": [
+      "secrets.get"
+    ],
+    "tool.call.outcome": "denied",
+    "policy.decision": "block"
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T18:10:35Z",
+    "event.id": "6a000011-0000-4a00-8000-000000000011",
+    "event.action": "execute_tool",
+    "event.outcome": "blocked",
+    "gen_ai.conversation.id": "conv-agent-6002",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "ops-agent",
+    "app.env": "prod",
+    "user.id": "u-agent-6002",
+    "gen_ai.agent.id": "agent-ops-1",
+    "gen_ai.agent.name": "ops-assistant",
+    "gen_ai.tool.type": "function",
+    "gen_ai.tool.name": "secrets.get",
+    "gen_ai.tool.call.id": "call-11",
+    "tool.call.depth": 1,
+    "tool.call.chain": [
+      "secrets.get"
+    ],
+    "tool.call.outcome": "denied",
+    "policy.decision": "block"
+  },
+  {
+    "schema_version": "0.1",
+    "timestamp": "2026-06-04T18:11:20Z",
+    "event.id": "6a000012-0000-4a00-8000-000000000012",
+    "event.action": "execute_tool",
+    "event.outcome": "blocked",
+    "gen_ai.conversation.id": "conv-agent-6002",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "app.name": "ops-agent",
+    "app.env": "prod",
+    "user.id": "u-agent-6002",
+    "gen_ai.agent.id": "agent-ops-1",
+    "gen_ai.agent.name": "ops-assistant",
+    "gen_ai.tool.type": "function",
+    "gen_ai.tool.name": "secrets.get",
+    "gen_ai.tool.call.id": "call-12",
+    "tool.call.depth": 1,
+    "tool.call.chain": [
+      "secrets.get"
+    ],
+    "tool.call.outcome": "denied",
+    "policy.decision": "block"
+  }
+]

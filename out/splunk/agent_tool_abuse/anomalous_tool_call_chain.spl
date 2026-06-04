@@ -1,0 +1,1 @@
+event_action IN ("execute_tool", "invoke_agent") tool_call_chain IN ("*read_file*", "*fs.read*", "*db.query*", "*sql.query*", "*secrets.get*", "*vault.read*", "*kv.get*", "*read_email*", "*inbox.read*", "*get_credentials*") tool_call_chain IN ("*send_email*", "*http.post*", "*http.request*", "*fetch_url*", "*upload_file*", "*post_webhook*", "*slack.post*", "*sftp.put*")
