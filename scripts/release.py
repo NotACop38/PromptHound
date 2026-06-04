@@ -46,7 +46,22 @@ def main() -> int:
         path.write_text(content, encoding="utf-8")
         print(f"  wrote    out/{path.relative_to(OUT_DIR)}")
 
-    print(f"\nregenerated {len(artifacts)} artifact(s) into {OUT_DIR}")
+    # Coverage map (PRD §14, Phase 4): regenerated from rule metadata only.
+    from coverage.build_coverage import generate_artifacts as coverage_artifacts
+    from coverage.build_coverage import write_artifacts as write_coverage
+
+    cov_artifacts, cov_errors = coverage_artifacts()
+    if cov_errors:
+        for error in cov_errors:
+            print(f"  ERROR  {error}")
+        print("\nrelease aborted: fix the coverage tag errors above.")
+        return 1
+    write_coverage(cov_artifacts)
+    for path in sorted(cov_artifacts):
+        print(f"  wrote    out/{path.relative_to(OUT_DIR)}")
+
+    total = len(artifacts) + len(cov_artifacts)
+    print(f"\nregenerated {total} artifact(s) into {OUT_DIR}")
     return 0
 
 

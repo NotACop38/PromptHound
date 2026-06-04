@@ -63,11 +63,11 @@ Exit: ≥1 rule per category (PRD §11), all green, each with honest falsepositi
 ## Phase 4 — Coverage map
 Goal: auto-generated, never-stale OWASP × ATLAS coverage.
 Exit: coverage/build_coverage.py emits the map from metadata; CI rebuilds it; not hand-editable.
-- [ ] 🧠 Choose output: ATLAS Navigator layer JSON + HTML/Markdown grid.
-- [ ] 🤖 Build the generator (Jinja2).
-- [ ] 🤖 Render OWASP grid + ATLAS coverage + Tier breakdown.
-- [ ] 🤖 CI step regenerates and fails on error.
-- [ ] ✅ Spot-check against the rule pack.
+- [x] 🧠 Choose output: ATLAS Navigator layer JSON + HTML/Markdown grid.
+- [x] 🤖 Build the generator (Jinja2).
+- [x] 🤖 Render OWASP grid + ATLAS coverage + Tier breakdown.
+- [x] 🤖 CI step regenerates and fails on error (`scripts/ci.py` coverage-build stage; unknown/missing tags fail).
+- [x] ✅ Spot-check against the rule pack (`tests/test_coverage.py`).
 
 ## Phase 5 — Demo + README
 Goal: the 10-second value hook and one-command wow.
