@@ -1,4 +1,8 @@
-"""PromptHound local CI runner (PRD §16, CHECKLIST Phase 2). Standard library only.
+"""PromptHound local CI runner (PRD §16, CHECKLIST Phase 2).
+
+The runner itself is standard-library only; the ``convert`` stage additionally
+imports ``prompthound.convert`` (pySigma + the pinned backends, PRD §13) to
+regenerate SPL/KQL — install the lockfile before running it.
 
 There is no hosted CI. Run the full check sequence on demand:
 
@@ -25,6 +29,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# Importable when run as `python scripts/ci.py` (so `scripts.*`/`prompthound.*` resolve).
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 SAMPLES_DIR = REPO_ROOT / "generator" / "samples"
 BAR = "=" * 72
 
@@ -90,6 +98,50 @@ def placeholder(note: str) -> Callable[[], bool]:
     return _run
 
 
+# --- convert stage (PRD §16 "convert (snapshot)", §12, decision D5) -----------
+#
+# Snapshot *check*, not a writer: every rule is run through both pySigma backends
+# and the regenerated SPL/KQL is compared against the committed out/ snapshot.
+# The stage fails if any output is empty (SPL, KQL, or savedsearches.conf),
+# non-byte-stable, missing from out/, drifted from out/, or if out/ holds a stale
+# generated file with no current source. Run `python scripts/release.py` to
+# (re)write out/. This keeps an ephemeral CI run honest -- it never silently
+# rewrites the artifacts it is supposed to be guarding.
+
+
+def convert_stage() -> bool:
+    """Verify the committed out/ SPL+KQL snapshot is current, non-empty, and stable."""
+    from scripts.conversion import OUT_DIR as ARTIFACT_OUT_DIR
+    from scripts.conversion import build_artifacts, committed_outputs
+
+    artifacts, errors = build_artifacts()
+    ok = True
+    for error in errors:
+        print(f"  [FAIL] {error}")
+        ok = False
+    if not artifacts:
+        return False
+
+    print(f"  checking {len(artifacts)} generated artifact(s) against out/")
+    for path, content in sorted(artifacts.items()):
+        rel = path.relative_to(ARTIFACT_OUT_DIR)
+        if not path.is_file():
+            print(f"  [FAIL] out/{rel}: missing snapshot (run scripts/release.py)")
+            ok = False
+        elif path.read_text(encoding="utf-8") != content:
+            print(f"  [FAIL] out/{rel}: snapshot drift (run scripts/release.py)")
+            ok = False
+        else:
+            print(f"  [ ok ] out/{rel}")
+
+    # Orphans: committed artifacts whose source rule/fixture no longer exists.
+    for path in sorted(committed_outputs() - set(artifacts)):
+        print(f"  [FAIL] out/{path.relative_to(ARTIFACT_OUT_DIR)}: stale (run scripts/release.py)")
+        ok = False
+
+    return ok
+
+
 @dataclass(frozen=True)
 class Stage:
     name: str
@@ -103,11 +155,7 @@ STAGES: list[Stage] = [
     Stage("ruff check", tool("ruff", "check", ".")),
     Stage("mypy prompthound", tool("mypy", "prompthound")),
     Stage("schema-validate", schema_validate),
-    Stage(
-        "convert (SPL + KQL snapshot)",
-        placeholder("pySigma conversion + snapshot test -- Phase 1/2 (PRD §16, D5)."),
-        is_placeholder=True,
-    ),
+    Stage("convert (SPL + KQL snapshot)", convert_stage),
     Stage("pytest", tool("pytest", "-q")),
     Stage(
         "coverage-build",

@@ -1,0 +1,2 @@
+PromptHoundAuditLog_CL
+| where (event_action =~ "chat" and guardrail_input_categories contains "instruction_extraction") and content_input_injection_markers >= 1
