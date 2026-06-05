@@ -73,6 +73,39 @@ def _git_commit() -> str:
         return "unknown"
 
 
+def _git_status_entries() -> list[str]:
+    """Return porcelain status entries for provenance-sensitive tree dirtiness.
+
+    ``git status --porcelain`` is stable for scripts and respects ``.gitignore``
+    by default, so ignored release byproducts such as ``out/dist/`` do not block
+    a release. Untracked, non-ignored files are included because the conversion
+    and coverage builders can consume a newly added rule before it has been
+    committed, which would make the stamped ``source_commit`` misleading.
+    """
+    try:
+        result = subprocess.run(  # nosec B603 B607
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return []
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def _print_dirty_release_blocker(entries: list[str]) -> None:
+    """Explain why a bundle release cannot be stamped from a dirty checkout."""
+    print("  ERROR  refusing to build release bundle from a dirty git checkout")
+    print("         commit or discard these changes, then rerun scripts/release.py:")
+    for entry in entries[:20]:
+        print(f"         {entry}")
+    if len(entries) > 20:
+        print(f"         ... and {len(entries) - 20} more")
+    print("         (use --allow-dirty only for local, non-public test bundles)")
+
+
 def regenerate_out() -> tuple[list[Path], int]:
     """Rewrite every generated artifact under ``out/``.
 
@@ -246,6 +279,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Only regenerate out/; skip the versioned bundle.",
     )
+    parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="Build a bundle even when git has uncommitted/untracked non-ignored changes "
+        "(for local testing only; public releases should stay clean).",
+    )
     args = parser.parse_args(argv)
 
     written, errors = regenerate_out()
@@ -255,6 +294,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.no_bundle:
         return 0
+
+    dirty_entries = _git_status_entries()
+    if dirty_entries and not args.allow_dirty:
+        _print_dirty_release_blocker(dirty_entries)
+        return 1
 
     version = _resolve_version(args.version)
     print(f"\nbuilding release bundle for v{version} ...")
