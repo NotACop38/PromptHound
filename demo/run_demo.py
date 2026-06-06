@@ -132,9 +132,9 @@ def _meta_strings(path: Path) -> tuple[str, str, str]:
     meta = load_rule_meta(path, errors)
     if meta is None:
         return ("?", "?", "?")
-    owasp = ", ".join(meta.owasp) or "—"
-    atlas = ", ".join(meta.atlas_techniques + meta.atlas_tactics) or "—"
-    tier = ", ".join(meta.tiers) or "—"
+    owasp = ", ".join(meta.owasp) or "-"
+    atlas = ", ".join(meta.atlas_techniques + meta.atlas_tactics) or "-"
+    tier = ", ".join(meta.tiers) or "-"
     return (owasp, atlas, tier)
 
 
@@ -220,9 +220,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    print("🐶🔍  PromptHound — offline detection demo")
+    print("PromptHound: offline detection demo")
     print("    generate synthetic telemetry → run the rule pack → coverage map")
-    print(f"    no live LLM is ever contacted (PRD §8 P1–P2) · seed={args.seed}")
+    print(f"    no live LLM is ever contacted (PRD §8 P1-P2) · seed={args.seed}")
 
     # 1. Generate ---------------------------------------------------------------
     banner("1. Generate synthetic telemetry")
@@ -257,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
     if errors:
         for error in errors:
             print(f"  ERROR  {error}")
-        print("\n  coverage build failed — fix the rule tags above.")
+        print("\n  coverage build failed: fix the rule tags above.")
         return 1
     write_artifacts(artifacts)
     for path in sorted(artifacts):
@@ -269,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     cov_rel = COVERAGE_OUT_DIR.relative_to(REPO_ROOT)
     print(f"  Markdown / ATLAS Navigator layer alongside it under {cov_rel}/")
 
-    banner("Demo complete ✓  (reproducible: re-run with the same --seed)")
+    banner("Demo complete (reproducible: re-run with the same --seed)")
     return 0
 
 

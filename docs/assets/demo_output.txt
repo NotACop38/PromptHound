@@ -1,6 +1,6 @@
-🐶🔍  PromptHound — offline detection demo
+PromptHound: offline detection demo
     generate synthetic telemetry → run the rule pack → coverage map
-    no live LLM is ever contacted (PRD §8 P1–P2) · seed=0
+    no live LLM is ever contacted (PRD §8 P1-P2) · seed=0
 
 ──────────────────────────────────────────────────────────────────────────────
 1. Generate synthetic telemetry
@@ -21,7 +21,7 @@
   dos_cost_abuse/repeated_length_finish_loops.yml                LLM10         AML.T0034, AML.T0029              T1/corr         1
   dos_cost_abuse/request_rate_burst_per_principal.yml            LLM10         AML.T0029, AML.T0034              T1/corr         1
   dos_cost_abuse/token_cost_spike_per_principal.yml              LLM10         AML.T0034, AML.T0029              T1/corr         1
-  insecure_output/unsanitized_output_to_sink.yml                 LLM05         —                                 T1/sel          1
+  insecure_output/unsanitized_output_to_sink.yml                 LLM05         -                                 T1/sel          1
   jailbreak/persona_safety_bypass_loop.yml                       LLM01, LLM06  AML.T0054                         T2/corr         ·
   prompt_injection/direct_injection_marker_count.yml             LLM01         AML.T0051.000                     T1/sel          4
   prompt_injection/direct_injection_markers.yml                  LLM01         AML.T0051.000                     T2/sel          3
@@ -39,9 +39,9 @@
   → wrote out/coverage/coverage.md
 
   Open the visual coverage map in a browser:
-    file:///path/to/PromptHound/out/coverage/coverage.html
+    file:///home/user/PromptHound/out/coverage/coverage.html
   Markdown / ATLAS Navigator layer alongside it under out/coverage/
 
 ──────────────────────────────────────────────────────────────────────────────
-Demo complete ✓  (reproducible: re-run with the same --seed)
+Demo complete (reproducible: re-run with the same --seed)
 ──────────────────────────────────────────────────────────────────────────────
