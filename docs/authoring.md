@@ -75,6 +75,16 @@ the rule filename. Each is one schema-valid event — or a JSON **array** of eve
 for a correlation rule (a burst vs. normal usage). Keep the positive a
 *signature*, never a payload (P1).
 
+Then declare the same signature as a `SampleSpec` in
+`prompthound/generator.py` (`SPECS`), with `rules=("<category>/<stem>.yml",)`
+pointing at your rule. This is **required**: the drift guard in
+`tests/test_generator.py` fails the build for any shipped rule with no generator
+signature, and it is what makes `make demo` fire the whole pack. A spec is a
+small overlay on the shared benign base event — for a correlation rule give the
+positive `count=` / `step_seconds=` so the burst crosses the rule's threshold
+inside its window, and make the negative a boundary probe (e.g. one event under
+the threshold).
+
 ### 4. Prove it (fire / silence)
 
 ```bash
@@ -161,10 +171,12 @@ keeps the harness faithful to the conversion source of truth.
   rule outgrows it.
 - **Correlation rules** (e.g.
   `dos_cost_abuse/token_cost_spike_per_principal.yml`) add windowed aggregation
-  the single-event matcher can't express. Their tests reuse `rule_matches` to
-  filter the *base* rule per event, then group by the correlation's `group-by`
-  over its `timespan` and apply the threshold (`tests/test_token_cost_spike.py`).
-  Their samples are therefore JSON **arrays** of events.
+  the single-event matcher can't express. The shared evaluator
+  (`prompthound/correlate.py`) filters the *base* rule per event with the
+  matcher, then groups by the correlation's `group-by` over its `timespan` and
+  applies the threshold; tests and the demo both call it
+  (`correlation_hits(rule_path, events)`). Their samples are therefore JSON
+  **arrays** of events.
 
 ## Sigma → SPL + KQL conversion (toolchain)
 

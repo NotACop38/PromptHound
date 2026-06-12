@@ -5,11 +5,39 @@ All notable changes to PromptHound are documented here. The format follows
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The version is stamped into each release bundle by `scripts/release.py` (it reads
-`prompthound.__version__`). There is no hosted CI; `scripts/ci.py` is the gate.
+`prompthound.__version__`). `scripts/ci.py` is the gate — run locally via `make ci`
+and by GitHub Actions on every push/PR.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **Hosted CI** (`.github/workflows/ci.yml`): GitHub Actions now runs the same
+  `scripts/ci.py` gate as `make ci` on every push and pull request (Python 3.11
+  + 3.12), so contributions are checked by exactly the sequence contributors run
+  locally.
+- **Shared correlation evaluator** (`prompthound/correlate.py`): the windowed
+  `event_count` evaluation that was previously copy-pasted across six test files
+  and the demo is now one library API (`correlation_hits`, `evaluate_rule_file`)
+  with its own unit suite (`tests/test_correlate.py`).
+- **Generator drift guard**: every shipped rule must now be targeted by a
+  generator signature whose positive fires it and whose negative stays silent
+  (`tests/test_generator.py`); a new rule cannot land without one.
+- Generator signatures for the rules that previously had none —
+  `denied_tool_retry_loop`, `tool_call_amplification_loop`, and
+  `system_prompt_leaked_in_output` — and burst-shaped positives for
+  `persona_safety_bypass_loop` and `pii_secret_exfiltration_in_output` (their
+  correlation thresholds were unreachable with single-event samples). `make demo`
+  now fires **15/15 rules** (previously 10/15).
+
+### Fixed
+- **Generated Sentinel KQL for boolean fields**: the pinned Kusto backend
+  rendered Sigma boolean equality as `field =~ true` — KQL's `=~`/`!~` are
+  string-only operators, so the queries for `unsanitized_output_to_sink` and
+  `system_prompt_leaked_in_output` would not compile against a `bool` column.
+  The Kusto pipeline now rewrites these to `==`/`!=` (with a regression test),
+  and the committed `out/kusto/` artifacts are regenerated.
+- Secrets scan: the `pragma: allowlist secret` marker is now honored on the line
+  preceding a multiline private-key block, not only on its first line.
 
 ## [0.1.0] — 2026-06-04
 

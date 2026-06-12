@@ -73,6 +73,9 @@ pipeline handles the flattening to SIEM columns.
 **Each new rule ships with** (CHECKLIST "Cross-cutting"):
 
 - [ ] A positive (should-alert) **and** negative (should-not-alert) sample.
+- [ ] A `SampleSpec` in `prompthound/generator.py` (`SPECS`) with `rules=` pointing
+      at the rule — the drift guard fails the build without one, and it is what
+      makes `make demo` fire the whole pack.
 - [ ] OWASP + ATLAS + tier tags (agent rules: + an `owasp-agentic` tag).
 - [ ] Honest `falsepositives`.
 - [ ] P1 compliance — a signature, not a payload.
@@ -101,8 +104,9 @@ python -m pip install -r requirements.lock -r requirements-dev.lock -e .
 
 ## 4. The merge gate: `make ci`
 
-There is **no hosted CI** — the local runner is the gate. Run it before opening a
-PR; every stage must pass:
+The gate is one runner, `scripts/ci.py`: GitHub Actions executes it on every
+push and pull request, and the same command runs locally. Run it before opening
+a PR; every stage must pass:
 
 ```bash
 make ci          # python scripts/ci.py

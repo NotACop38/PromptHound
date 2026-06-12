@@ -4,7 +4,9 @@ The runner itself is standard-library only; the ``convert`` stage additionally
 imports ``prompthound.convert`` (pySigma + the pinned backends, PRD §13) to
 regenerate SPL/KQL — install the lockfile before running it.
 
-There is no hosted CI. Run the full check sequence on demand:
+This one runner is the gate everywhere: GitHub Actions executes it on every
+push and pull request (.github/workflows/ci.yml), and the identical sequence
+runs locally on demand:
 
     python scripts/ci.py        # or: make ci
 

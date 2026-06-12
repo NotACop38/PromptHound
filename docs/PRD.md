@@ -342,7 +342,7 @@ Components:
 - `generator/` — synthetic telemetry generator (per-rule positive/negative specs).
 - `tests/` — pytest harness: evaluate rule logic against samples, assert outcomes.
 - `coverage/` — coverage-map generator (reads metadata, renders OWASP × ATLAS).
-- `scripts/` — `ci.py` (local CI runner) + `release.py` (local CD: regenerate outputs into `out/`).
+- `scripts/` — `ci.py` (the CI gate, run locally and by GitHub Actions) + `release.py` (local CD: regenerate outputs into `out/`).
 - `demo/` — the one-command entrypoint.
 
 **Test-harness approach:** evaluate the **Sigma rule logic directly against sample events** (backend-agnostic, no running SIEM). Generated SPL/KQL is separately **snapshot-tested** (stable + non-empty). Confirm the exact matching mechanism during the vertical slice.
@@ -358,7 +358,7 @@ Components:
 - **`sigma-cli`** — optional, local conversion + plugin management.
 - **`pytest`**, **`jinja2`**, **`pyyaml`**.
 - **(eval) `pydantic`** — optional schema validation; decide in Phase 0; keep lean.
-- **Local CI runner** (`python scripts/ci.py`) — no hosted CI; run on demand.
+- **CI gate** (`python scripts/ci.py`) — one ordered runner, executed locally on demand and by GitHub Actions on every push/PR.
 
 > Pin everything in a lockfile. A backend or pySigma bump = a reviewed change with full regeneration.
 
@@ -407,7 +407,7 @@ prompthound/
 ├── demo/
 │   └── run_demo.py
 ├── scripts/
-│   ├── ci.py                   # local CI runner (no hosted CI)
+│   ├── ci.py                   # the CI gate (run locally + by GitHub Actions)
 │   └── release.py              # local CD: regenerate out/ + stamp a versioned bundle
 └── out/                        # generated SPL/KQL/coverage (committed) + dist/ bundles (git-ignored)
 ```
@@ -430,12 +430,17 @@ Conventions: one rule = one behavior; prefer Tier-1/derived fields where equival
 ## 16. Testing strategy
 
 - Per-rule fire test (positive → match) and silence test (negative → no match).
+  Selection rules use the single-event matcher (`prompthound/matcher.py`);
+  correlation rules use the shared windowed evaluator (`prompthound/correlate.py`).
+- Generator drift guard: every shipped rule must be targeted by a generator
+  signature whose positive fires it and whose negative stays silent
+  (`tests/test_generator.py`), so `make demo` always exercises the whole pack.
 - Conversion snapshot test (non-empty SPL + KQL, stable).
 - Schema-validity test (every sample validates against the schema).
 - Metadata test (every rule has OWASP + ATLAS + tier tags).
 - Coverage build test (map regenerates without error).
 
-Local CI (`scripts/ci.py`) stage order: `lint → schema-validate → convert (snapshot) → rule fire/silence → metadata gate → coverage build`.
+CI (`scripts/ci.py`) stage order: `lint → schema-validate → convert (snapshot) → rule fire/silence → metadata gate → coverage build`. The same runner executes locally (`make ci`) and in GitHub Actions on every push/PR.
 
 ---
 
