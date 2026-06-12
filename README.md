@@ -141,7 +141,7 @@ make release  # regenerate all SPL/KQL/coverage artifacts into out/ + a versione
 make test     # the pytest suite
 ```
 
-The gate is one runner, `scripts/ci.py`: GitHub Actions executes it on every push and pull request, and `make ci` runs the identical sequence locally before you push. `make ci` / `make test` need the pinned dev toolchain: `pip install -r requirements-dev.lock` (or `make setup`); see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The gate is one runner, `scripts/ci.py`: GitHub Actions executes it on every pull request and every push to `main`, and `make ci` runs the identical sequence locally before you push. `make ci` / `make test` need the pinned dev toolchain: `pip install -r requirements-dev.lock` (or `make setup`); see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Why PromptHound
 

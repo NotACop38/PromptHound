@@ -98,7 +98,7 @@ Exit: a stranger can understand the line, add a rule, and get it merged via CI.
 
 ## Post-0.1.0
 Goal: keep the gate honest as the pack and contributor base grow.
-- [x] 🤖 Hosted CI: GitHub Actions runs `scripts/ci.py` on every push/PR (`.github/workflows/ci.yml`), Python 3.11 + 3.12.
+- [x] 🤖 Hosted CI: GitHub Actions runs `scripts/ci.py` on every PR and push to main (`.github/workflows/ci.yml`), Python 3.11 + 3.12.
 - [x] 🤖 Shared correlation evaluator (`prompthound/correlate.py`) used by the demo and every correlation test; unit suite in `tests/test_correlate.py`.
 - [x] 🤖 Generator drift guard: every shipped rule must have a generator signature that fires it (`tests/test_generator.py`); `make demo` proves 15/15 rules.
 - [x] 🤖 Fix generated Sentinel KQL boolean comparisons (`=~ true` → `== true`; the Kusto backend's string operator does not compile against bool columns).

@@ -22,6 +22,8 @@ table to every query. pySigma 1.0.0's factory pattern (PRD §13) lets us compose
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from typing import Literal
 
 from sigma.backends.kusto import KustoBackend
@@ -33,7 +35,7 @@ from sigma.processing.pipeline import (
     ProcessingPipeline,
     QueryPostprocessingItem,
 )
-from sigma.processing.postprocessing import ReplaceQueryTransformation
+from sigma.processing.postprocessing import QueryPostprocessingTransformation
 from sigma.processing.transformations import FieldMappingTransformation
 
 from prompthound.fieldmap import DEFAULT_QUERY_TABLE, FIELD_MAP
@@ -51,6 +53,41 @@ KustoFlavour = Literal["sentinelasim", "azure_monitor"]
 _PIPELINE_PRIORITY = 9
 
 
+@dataclass
+class _BooleanCompareFixTransformation(QueryPostprocessingTransformation):
+    """Rewrite the backend's boolean comparisons to valid KQL — outside literals.
+
+    The pinned Kusto backend (1.0.x) renders Sigma boolean equality with the
+    case-insensitive *string* operators: ``field =~ true`` / ``field !~ false``.
+    KQL's ``=~``/``!~`` are string-only, so those queries fail to compile against
+    a real ``bool`` column; they must be ``==``/``!=``.
+
+    The rewrite walks the query skipping quoted string literals, so a detection
+    marker whose *text* happens to contain ``=~ true`` (inside a ``contains``
+    value, say) is never altered — only genuine operator-position comparisons
+    against a bare ``true``/``false`` are touched.
+    """
+
+    #: One alternation: a single- or double-quoted KQL string literal (group 0
+    #: only, passed through untouched) OR a boolean comparison (groups 1+2).
+    _LITERAL_OR_BOOL = re.compile(
+        r'"(?:\\.|[^"\\])*"'
+        r"|'(?:\\.|[^'\\])*'"
+        r"|(=~|!~) (true|false)\b"
+    )
+
+    def apply(self, rule: object, query: str) -> str:
+        super().apply(rule, query)  # type: ignore[arg-type]
+
+        def fix(match: re.Match[str]) -> str:
+            operator = match.group(1)
+            if operator is None:
+                return match.group(0)  # a string literal: leave verbatim
+            return f"{'==' if operator == '=~' else '!='} {match.group(2)}"
+
+        return self._LITERAL_OR_BOOL.sub(fix, query)
+
+
 def _prompthound_field_pipeline() -> ProcessingPipeline:
     """The PromptHound-specific half: flatten schema fields for ``llm_gateway`` rules."""
     # Typed to FieldMappingTransformation's parameter (dict is invariant, so a
@@ -66,23 +103,13 @@ def _prompthound_field_pipeline() -> ProcessingPipeline:
                 rule_conditions=[LogsourceCondition(product="llm_gateway")],
             ),
         ],
-        # The pinned Kusto backend (1.0.x) renders Sigma boolean equality with the
-        # case-insensitive *string* operator: ``field =~ true``. KQL's ``=~``/``!~``
-        # are string-only, so that query fails to compile against a real ``bool``
-        # column. Rewrite bare boolean comparisons to ``==`` / ``!=``.
+        # See _BooleanCompareFixTransformation: the backend's `=~ true` boolean
+        # comparisons are invalid KQL and are rewritten to `== true` — skipping
+        # string literals so marker text can never be altered.
         postprocessing_items=[
             QueryPostprocessingItem(
-                identifier="prompthound_kusto_bool_equals",
-                transformation=ReplaceQueryTransformation(
-                    pattern=r"=~ (true|false)\b", replacement=r"== \1"
-                ),
-                rule_conditions=[LogsourceCondition(product="llm_gateway")],
-            ),
-            QueryPostprocessingItem(
-                identifier="prompthound_kusto_bool_not_equals",
-                transformation=ReplaceQueryTransformation(
-                    pattern=r"!~ (true|false)\b", replacement=r"!= \1"
-                ),
+                identifier="prompthound_kusto_bool_compare",
+                transformation=_BooleanCompareFixTransformation(),
                 rule_conditions=[LogsourceCondition(product="llm_gateway")],
             ),
         ],

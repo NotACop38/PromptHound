@@ -105,7 +105,7 @@ python -m pip install -r requirements.lock -r requirements-dev.lock -e .
 ## 4. The merge gate: `make ci`
 
 The gate is one runner, `scripts/ci.py`: GitHub Actions executes it on every
-push and pull request, and the same command runs locally. Run it before opening
+pull request and every push to `main`, and the same command runs locally. Run it before opening
 a PR; every stage must pass:
 
 ```bash

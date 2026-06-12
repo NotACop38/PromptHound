@@ -123,6 +123,27 @@ def test_correlate_base_detection_filters_events(rule_file: Path) -> None:
     assert correlation_hits(rule_file, events) == []
 
 
+def test_correlate_day_scale_timespans_keep_their_full_span(tmp_path: Path) -> None:
+    # pySigma's SigmaCorrelationTimespan.seconds is the TOTAL span (1d -> 86400),
+    # so day-scale windows must work at full width — this pins that a `1d`
+    # window is not truncated modulo a day (e.g. to 0 seconds).
+    path = tmp_path / "daily_burst.yml"
+    path.write_text(CORRELATION_RULE.replace("timespan: 5m", "timespan: 1d"), encoding="utf-8")
+
+    def at(hour: int) -> dict:
+        day, hh = divmod(hour, 24)
+        return {
+            "timestamp": f"2026-06-{11 + day:02d}T{hh:02d}:00:00Z",
+            "event.action": "chat",
+            "user.id": "u-1",
+        }
+
+    # Three matches over 20 hours: inside one 24h window -> fires.
+    assert correlation_hits(path, [at(0), at(10), at(20)]) == [(("u-1",), 3)]
+    # Three matches spread over 26 hours, max 2 per 24h window -> silent.
+    assert correlation_hits(path, [at(0), at(13), at(26)]) == []
+
+
 def test_correlate_alert_is_tuple_compatible(rule_file: Path) -> None:
     [alert] = correlation_hits(rule_file, [_event(0), _event(1), _event(2)])
     assert isinstance(alert, CorrelationAlert)

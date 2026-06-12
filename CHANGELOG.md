@@ -6,15 +6,15 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The version is stamped into each release bundle by `scripts/release.py` (it reads
 `prompthound.__version__`). `scripts/ci.py` is the gate — run locally via `make ci`
-and by GitHub Actions on every push/PR.
+and by GitHub Actions on every PR and push to main.
 
 ## [Unreleased]
 
 ### Added
 - **Hosted CI** (`.github/workflows/ci.yml`): GitHub Actions now runs the same
-  `scripts/ci.py` gate as `make ci` on every push and pull request (Python 3.11
-  + 3.12), so contributions are checked by exactly the sequence contributors run
-  locally.
+  `scripts/ci.py` gate as `make ci` on every pull request and push to main
+  (Python 3.11 + 3.12), so contributions are checked by exactly the sequence
+  contributors run locally.
 - **Shared correlation evaluator** (`prompthound/correlate.py`): the windowed
   `event_count` evaluation that was previously copy-pasted across six test files
   and the demo is now one library API (`correlation_hits`, `evaluate_rule_file`)

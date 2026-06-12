@@ -358,7 +358,7 @@ Components:
 - **`sigma-cli`** — optional, local conversion + plugin management.
 - **`pytest`**, **`jinja2`**, **`pyyaml`**.
 - **(eval) `pydantic`** — optional schema validation; decide in Phase 0; keep lean.
-- **CI gate** (`python scripts/ci.py`) — one ordered runner, executed locally on demand and by GitHub Actions on every push/PR.
+- **CI gate** (`python scripts/ci.py`) — one ordered runner, executed locally on demand and by GitHub Actions on every PR and push to main.
 
 > Pin everything in a lockfile. A backend or pySigma bump = a reviewed change with full regeneration.
 
@@ -440,7 +440,7 @@ Conventions: one rule = one behavior; prefer Tier-1/derived fields where equival
 - Metadata test (every rule has OWASP + ATLAS + tier tags).
 - Coverage build test (map regenerates without error).
 
-CI (`scripts/ci.py`) stage order: `lint → schema-validate → convert (snapshot) → rule fire/silence → metadata gate → coverage build`. The same runner executes locally (`make ci`) and in GitHub Actions on every push/PR.
+CI (`scripts/ci.py`) stage order: `lint → schema-validate → convert (snapshot) → rule fire/silence → metadata gate → coverage build`. The same runner executes locally (`make ci`) and in GitHub Actions on every PR and push to main.
 
 ---
 

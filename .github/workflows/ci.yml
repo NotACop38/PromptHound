@@ -1,6 +1,8 @@
-# PromptHound hosted CI: runs the same ordered gate as `make ci` on every push
-# and pull request, so a contribution is checked by exactly the sequence a
-# contributor runs locally (scripts/ci.py is the single source of truth).
+# PromptHound hosted CI: runs the same ordered gate as `make ci` on every pull
+# request and every push to main, so a contribution is checked by exactly the
+# sequence a contributor runs locally (scripts/ci.py is the single source of
+# truth). PR branches are covered by the pull_request trigger; restricting the
+# push trigger to main avoids running every gate twice on PR branches.
 name: CI
 
 on:
