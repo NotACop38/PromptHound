@@ -111,7 +111,7 @@
   <text class="l4" x="22" y="124.0" fill="#3b4252" xml:space="preserve">──────────────────────────────────────────────────────────────────────────────</text>
   <text class="l5" x="22" y="142.0" fill="#88c0d0" xml:space="preserve">1. Generate synthetic telemetry</text>
   <text class="l6" x="22" y="160.0" fill="#3b4252" xml:space="preserve">──────────────────────────────────────────────────────────────────────────────</text>
-  <text class="l7" x="22" y="178.0" fill="#d8dee9" xml:space="preserve">  84 schema-valid events  (8 benign · 46 positive · 30 negative signatures)</text>
+  <text class="l7" x="22" y="178.0" fill="#d8dee9" xml:space="preserve">  124 schema-valid events  (8 benign · 72 positive · 44 negative signatures)</text>
   <text class="l8" x="22" y="196.0" fill="#81a1c1" xml:space="preserve">  → wrote out/telemetry.jsonl</text>
   <text class="l10" x="22" y="232.0" fill="#3b4252" xml:space="preserve">──────────────────────────────────────────────────────────────────────────────</text>
   <text class="l11" x="22" y="250.0" fill="#88c0d0" xml:space="preserve">2. Evaluate the rule pack against the dataset</text>
@@ -119,21 +119,21 @@
   <text class="l13" x="22" y="286.0" fill="#d8dee9" xml:space="preserve">  Rule                                                           OWASP         ATLAS                             Tier         Hits</text>
   <text class="l14" x="22" y="304.0" fill="#3b4252" xml:space="preserve">  ─────────────────────────────────────────────────────────────  ────────────  ────────────────────────────────  ───────────  ────</text>
   <text class="l15" x="22" y="322.0" fill="#d8dee9" xml:space="preserve">  agent_tool_abuse/anomalous_tool_call_chain.yml                 LLM06         AML.T0085.001, AML.TA0015         T1/sel          1</text>
-  <text class="l16" x="22" y="340.0" fill="#d8dee9" xml:space="preserve">  agent_tool_abuse/denied_tool_retry_loop.yml                    LLM06         AML.T0085.001, AML.TA0015         T1/corr         ·</text>
-  <text class="l17" x="22" y="358.0" fill="#d8dee9" xml:space="preserve">  agent_tool_abuse/tool_call_amplification_loop.yml              LLM10, LLM06  AML.T0034, AML.T0029, AML.TA0015  T1/corr         ·</text>
-  <text class="l18" x="22" y="376.0" fill="#d8dee9" xml:space="preserve">  data_exfiltration/pii_secret_exfiltration_in_output.yml        LLM02         AML.T0024, AML.T0025              T1, T2/corr     ·</text>
+  <text class="l16" x="22" y="340.0" fill="#d8dee9" xml:space="preserve">  agent_tool_abuse/denied_tool_retry_loop.yml                    LLM06         AML.T0085.001, AML.TA0015         T1/corr         1</text>
+  <text class="l17" x="22" y="358.0" fill="#d8dee9" xml:space="preserve">  agent_tool_abuse/tool_call_amplification_loop.yml              LLM10, LLM06  AML.T0034, AML.T0029, AML.TA0015  T1/corr         1</text>
+  <text class="l18" x="22" y="376.0" fill="#d8dee9" xml:space="preserve">  data_exfiltration/pii_secret_exfiltration_in_output.yml        LLM02         AML.T0024, AML.T0025              T1, T2/corr     1</text>
   <text class="l19" x="22" y="394.0" fill="#d8dee9" xml:space="preserve">  dos_cost_abuse/oversized_max_tokens.yml                        LLM10         AML.T0034, AML.T0029              T1/sel          1</text>
   <text class="l20" x="22" y="412.0" fill="#d8dee9" xml:space="preserve">  dos_cost_abuse/repeated_length_finish_loops.yml                LLM10         AML.T0034, AML.T0029              T1/corr         1</text>
   <text class="l21" x="22" y="430.0" fill="#d8dee9" xml:space="preserve">  dos_cost_abuse/request_rate_burst_per_principal.yml            LLM10         AML.T0029, AML.T0034              T1/corr         1</text>
   <text class="l22" x="22" y="448.0" fill="#d8dee9" xml:space="preserve">  dos_cost_abuse/token_cost_spike_per_principal.yml              LLM10         AML.T0034, AML.T0029              T1/corr         1</text>
   <text class="l23" x="22" y="466.0" fill="#d8dee9" xml:space="preserve">  insecure_output/unsanitized_output_to_sink.yml                 LLM05         -                                 T1/sel          1</text>
-  <text class="l24" x="22" y="484.0" fill="#d8dee9" xml:space="preserve">  jailbreak/persona_safety_bypass_loop.yml                       LLM01, LLM06  AML.T0054                         T2/corr         ·</text>
-  <text class="l25" x="22" y="502.0" fill="#d8dee9" xml:space="preserve">  prompt_injection/direct_injection_marker_count.yml             LLM01         AML.T0051.000                     T1/sel          4</text>
+  <text class="l24" x="22" y="484.0" fill="#d8dee9" xml:space="preserve">  jailbreak/persona_safety_bypass_loop.yml                       LLM01, LLM06  AML.T0054                         T2/corr         1</text>
+  <text class="l25" x="22" y="502.0" fill="#d8dee9" xml:space="preserve">  prompt_injection/direct_injection_marker_count.yml             LLM01         AML.T0051.000                     T1/sel          6</text>
   <text class="l26" x="22" y="520.0" fill="#d8dee9" xml:space="preserve">  prompt_injection/direct_injection_markers.yml                  LLM01         AML.T0051.000                     T2/sel          3</text>
   <text class="l27" x="22" y="538.0" fill="#d8dee9" xml:space="preserve">  prompt_injection/indirect_injection_from_untrusted_source.yml  LLM01         AML.T0051.001                     T2/sel          1</text>
-  <text class="l28" x="22" y="556.0" fill="#d8dee9" xml:space="preserve">  system_prompt_extraction/extract_system_prompt_markers.yml     LLM07         AML.T0056                         T2/sel          3</text>
-  <text class="l29" x="22" y="574.0" fill="#d8dee9" xml:space="preserve">  system_prompt_extraction/system_prompt_leaked_in_output.yml    LLM07         AML.T0056                         T1, T2/sel      ·</text>
-  <text class="l31" x="22" y="610.0" fill="#a3be8c" xml:space="preserve">  10/15 rules fired · 17 total hits across 84 events (Tier = T1 operational / T2 content; sel = selection, corr = correlation)</text>
+  <text class="l28" x="22" y="556.0" fill="#d8dee9" xml:space="preserve">  system_prompt_extraction/extract_system_prompt_markers.yml     LLM07         AML.T0056                         T2/sel          4</text>
+  <text class="l29" x="22" y="574.0" fill="#d8dee9" xml:space="preserve">  system_prompt_extraction/system_prompt_leaked_in_output.yml    LLM07         AML.T0056                         T1, T2/sel      1</text>
+  <text class="l31" x="22" y="610.0" fill="#a3be8c" xml:space="preserve">  15/15 rules fired · 25 total hits across 124 events (Tier = T1 operational / T2 content; sel = selection, corr = correlation)</text>
   <text class="l33" x="22" y="646.0" fill="#3b4252" xml:space="preserve">──────────────────────────────────────────────────────────────────────────────</text>
   <text class="l34" x="22" y="664.0" fill="#88c0d0" xml:space="preserve">3. Build the OWASP × ATLAS coverage map</text>
   <text class="l35" x="22" y="682.0" fill="#3b4252" xml:space="preserve">──────────────────────────────────────────────────────────────────────────────</text>

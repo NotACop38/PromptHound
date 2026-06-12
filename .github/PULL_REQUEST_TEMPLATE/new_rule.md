@@ -22,6 +22,7 @@ See docs/authoring.md ("add a rule in 10 minutes").
 
 - [ ] **Positive** (should-alert): `generator/samples/<name>.positive.json` — a log **signature**, not a working exploit (P1).
 - [ ] **Negative** (should-not-alert): `generator/samples/<name>.negative.json` — a near-miss benign event.
+- [ ] **Generator signature**: a `SampleSpec` in `prompthound/generator.py` with `rules=` pointing at the rule (the drift guard in `tests/test_generator.py` enforces this).
 - **Honest false positives:** <!-- where it misfires and how to scope/tune -->
 
 ## Checklist

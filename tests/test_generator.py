@@ -7,14 +7,15 @@ Covers the task's acceptance gates:
   * determinism -- a given ``--seed`` reproduces byte-identical output;
   * P1 enforced in code -- the content fields of the dataset (and the on-disk
     fixtures) carry no working-exploit patterns, and the guard is non-vacuous;
-  * the two specs backed by real Sigma rules fire / stay silent as declared.
+  * the drift guard -- every shipped rule is targeted by a spec whose positive
+    fires it and whose negative stays silent, so `make demo` always proves the
+    whole rule pack.
 
 Run just these with ``pytest -k generator -q``.
 """
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 from collections import Counter
 from pathlib import Path
@@ -22,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from prompthound import generator
+from prompthound.correlate import evaluate_rule_file
 from prompthound.generator import (
     SPECS,
     P1Violation,
@@ -29,7 +31,6 @@ from prompthound.generator import (
     iter_events,
     write_jsonl,
 )
-from prompthound.matcher import load_rule, rule_matches
 from prompthound.p1_guard import CONTENT_FIELDS, scan_event, scan_events, scan_text
 from prompthound.schema import load_schema, validate_event
 
@@ -77,28 +78,27 @@ def test_generator_token_totals_are_consistent() -> None:
             assert event["gen_ai.usage.total_tokens"] == inp + out
 
 
-def test_generator_rule_backed_specs_point_to_shipped_rules() -> None:
-    # Only specs whose `rule` resolves to a shipped Sigma file are safe to count
-    # for rule-pack recall; the rest are forward-looking signatures.
-    shipped = {spec.rule for spec in SPECS if spec.rule}
-    assert shipped == {
-        "system_prompt_extraction/extract_system_prompt_markers.yml",
-        "dos_cost_abuse/token_cost_spike_per_principal.yml",
-        "dos_cost_abuse/oversized_max_tokens.yml",
-        "dos_cost_abuse/request_rate_burst_per_principal.yml",
-        "dos_cost_abuse/repeated_length_finish_loops.yml",
-        "insecure_output/unsanitized_output_to_sink.yml",
+def test_generator_specs_cover_every_shipped_rule() -> None:
+    # The drift guard's first half: the union of all specs' targeted rules must
+    # be exactly the shipped rule pack, so a new rule cannot land without a
+    # generator signature (and a stale target cannot linger after a rename).
+    shipped = {
+        str(p.relative_to(RULES_DIR))
+        for pattern in ("**/*.yml", "**/*.yaml")
+        for p in RULES_DIR.glob(pattern)
     }
-    for spec in SPECS:
-        if spec.rule:
-            assert (RULES_DIR / spec.rule).is_file(), f"{spec.stem} -> missing rule {spec.rule}"
-    # The rule label propagates to the emitted samples.
+    targeted = {rel for spec in SPECS for rel in spec.rules}
+    assert targeted == shipped, (
+        f"untargeted shipped rules: {sorted(shipped - targeted)}; "
+        f"targets without a shipped rule: {sorted(targeted - shipped)}"
+    )
+    # The rule labels propagate to the emitted samples.
     for sample in build_samples(seed=0):
         if sample.polarity == "benign":
-            assert sample.rule is None
+            assert sample.rules == ()
         else:
             spec = next(s for s in SPECS if s.stem == sample.stem)
-            assert sample.rule == spec.rule
+            assert sample.rules == spec.rules
 
 
 def test_generator_events_are_in_timestamp_order() -> None:
@@ -193,7 +193,7 @@ def test_generator_content_fields_cover_schema_content() -> None:
     assert "output.sink" not in CONTENT_FIELDS  # an enum, not free text
 
 
-# --- the two real-rule specs fire / stay silent -------------------------------
+# --- the drift guard: every spec fires its targeted rules ---------------------
 
 
 def _events_for(stem: str, polarity: str) -> list[dict]:
@@ -204,37 +204,28 @@ def _events_for(stem: str, polarity: str) -> list[dict]:
     return events
 
 
-def test_generator_extraction_sample_fires_real_rule() -> None:
-    rule = load_rule(RULES_DIR / "system_prompt_extraction" / "extract_system_prompt_markers.yml")
-    positives = _events_for("extract_system_prompt_markers", "positive")
-    negatives = _events_for("extract_system_prompt_markers", "negative")
-    assert positives and all(rule_matches(rule, e) for e in positives), "positive must fire"
-    assert negatives, "expected a negative sample"
-    assert not any(rule_matches(rule, e) for e in negatives), "negative must stay silent"
+@pytest.mark.parametrize(
+    ("stem", "rule_rel"),
+    [(spec.stem, rel) for spec in SPECS for rel in spec.rules],
+    ids=[f"{spec.stem}->{Path(rel).stem}" for spec in SPECS for rel in spec.rules],
+)
+def test_generator_signature_fires_its_rule(stem: str, rule_rel: str) -> None:
+    # The drift guard's second half, for every (spec, targeted rule) pair: the
+    # generated positive must fire the shipped rule (selection match for plain
+    # rules, an alerting group for correlations) and the generated negative must
+    # stay silent. Evaluated with the same library evaluator the demo uses.
+    rule_path = RULES_DIR / rule_rel
+    assert rule_path.is_file(), f"{stem} targets a missing rule: {rule_rel}"
 
+    positives = _events_for(stem, "positive")
+    negatives = _events_for(stem, "negative")
+    assert positives, f"{stem} produced no positive events"
+    assert negatives, f"{stem} produced no negative events"
 
-def test_generator_dos_burst_meets_threshold() -> None:
-    from sigma.collection import SigmaCollection
-    from sigma.correlations import SigmaCorrelationRule
-
-    rule_path = RULES_DIR / "dos_cost_abuse" / "token_cost_spike_per_principal.yml"
-    collection = SigmaCollection.load_ruleset([str(rule_path)])
-    base = next(r for r in collection.rules if not isinstance(r, SigmaCorrelationRule))
-    correlation = next(r for r in collection.rules if isinstance(r, SigmaCorrelationRule))
-    span = dt.timedelta(seconds=correlation.timespan.seconds)
-    threshold = correlation.condition.count
-
-    positives = _events_for("token_cost_spike_per_principal", "positive")
-    matched = [e for e in positives if rule_matches(base, e)]
-    # All burst events share one principal within the window -> count crosses it.
-    assert len(matched) >= threshold, "high-token burst should cross the correlation threshold"
-    times = sorted(
-        dt.datetime.fromisoformat(e["timestamp"].replace("Z", "+00:00")) for e in matched
-    )
-    assert times[-1] - times[0] < span, "burst must fall inside the correlation window"
-
-    negatives = _events_for("token_cost_spike_per_principal", "negative")
-    assert not any(rule_matches(base, e) for e in negatives), "normal usage must not match base"
+    fired = evaluate_rule_file(rule_path, positives)
+    silent = evaluate_rule_file(rule_path, negatives)
+    assert fired.hits > 0, f"{stem} positive must fire {rule_rel}"
+    assert silent.hits == 0, f"{stem} negative must stay silent on {rule_rel}"
 
 
 # --- CLI ----------------------------------------------------------------------

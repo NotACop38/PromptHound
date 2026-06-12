@@ -79,6 +79,18 @@ def test_security_secrets_scan_honours_allowlist_marker() -> None:
     assert scan_text("config.py", line) == []
 
 
+def test_security_secrets_scan_honours_marker_before_key_block() -> None:
+    # A pragma comment naturally sits on the line *above* a PEM header; the
+    # multiline scan must honour it there as well as on the header line itself.
+    pem_body = "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAK...\n"
+    marked_above = "# test fixture, pragma: allowlist secret\n" + pem_body
+    assert scan_text("fixture.py", marked_above) == []
+    marked_on_header = pem_body.replace("KEY-----\n", "KEY-----  # pragma: allowlist secret\n", 1)
+    assert scan_text("fixture.py", marked_on_header) == []
+    # And with no marker anywhere, the block is still flagged.
+    assert [f.kind for f in scan_text("id_rsa", pem_body)] == ["private-key-block"]
+
+
 def test_security_secrets_scan_allows_known_example() -> None:
     assert "AKIAIOSFODNN7EXAMPLE" in KNOWN_EXAMPLES
     assert scan_text("doc.md", "example key AKIAIOSFODNN7EXAMPLE in the docs\n") == []

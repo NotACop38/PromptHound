@@ -53,3 +53,46 @@ def test_kql_targets_the_audit_table() -> None:
 def test_kusto_flavours_both_convert(flavour: str) -> None:
     result = convert_rule(SMOKE_RULE, kusto_flavour=flavour)
     assert result.kql and all(query.strip() for query in result.kql)
+
+
+@pytest.mark.parametrize("flavour", ["sentinelasim", "azure_monitor"])
+def test_kql_boolean_equality_uses_double_equals(flavour: str) -> None:
+    # Regression: the pinned Kusto backend renders Sigma `field: true` with the
+    # string-only `=~` operator, which does not compile against a bool column.
+    # The pipeline's postprocessing must rewrite it to `==` (prompthound_kusto.py).
+    rule = REPO_ROOT / "rules" / "insecure_output" / "unsanitized_output_to_sink.yml"
+    kql = "\n".join(convert_rule(rule, kusto_flavour=flavour).kql)
+    assert "output_rendered_unsanitized == true" in kql
+    assert "=~ true" not in kql and "=~ false" not in kql
+
+
+LITERAL_PROBE_RULE = """\
+title: Boolean rewrite literal probe
+id: 9d2f4c1e-7b3a-4e60-9c15-2a8d0f6b3e72
+status: experimental
+description: pipeline test fixture - a marker whose text contains an operator-like sequence
+author: PromptHound tests
+date: 2026-06-12
+logsource:
+  product: llm_gateway
+detection:
+  flag:
+    output.rendered_unsanitized: true
+  marker:
+    gen_ai.output.messages|contains: 'flag =~ true'
+  condition: flag and marker
+falsepositives:
+  - none
+level: low
+"""
+
+
+def test_kql_boolean_rewrite_spares_string_literals(tmp_path: Path) -> None:
+    # The rewrite must touch only operator-position boolean comparisons: a
+    # detection marker whose *text* contains "=~ true" lives inside a quoted
+    # KQL string literal and has to come through verbatim.
+    rule = tmp_path / "literal_probe.yml"
+    rule.write_text(LITERAL_PROBE_RULE, encoding="utf-8")
+    kql = "\n".join(convert_rule(rule).kql)
+    assert 'contains "flag =~ true"' in kql, "marker text inside a literal was altered"
+    assert "output_rendered_unsanitized == true" in kql, "real boolean compare not rewritten"

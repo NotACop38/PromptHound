@@ -1,4 +1,5 @@
-# PromptHound — developer entrypoints (PRD §12). No hosted CI; run locally.
+# PromptHound — developer entrypoints (PRD §12). GitHub Actions runs the same
+# `scripts/ci.py` gate on every PR and push to main; run it locally first.
 .PHONY: setup ci release fmt test demo
 
 # Install the pinned runtime deps + dev/CI toolchain + the package, into the

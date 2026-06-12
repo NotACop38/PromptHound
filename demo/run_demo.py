@@ -24,12 +24,9 @@ hits.
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import sys
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # Importable when run as `python demo/run_demo.py` from a fresh clone. The
@@ -49,9 +46,9 @@ BAR = "─" * 78
 # Two rule shapes ship in the pack (PRD §11/§12): plain *selection* rules, which
 # the offline matcher evaluates one event at a time, and *correlation* rules
 # (all `event_count`), whose alert is a per-group windowed count crossing a
-# threshold — the windowing the single-event matcher can't express. We mirror the
-# evaluator the tests use (tests/test_dos_cost_abuse.py) so demo hits agree with
-# what `pytest` proves.
+# threshold. Both shapes are evaluated by the shared library evaluator
+# (prompthound.correlate) — the same implementation `pytest` proves — so demo
+# hits always agree with the test suite.
 
 
 @dataclass(frozen=True)
@@ -64,64 +61,16 @@ class RuleHits:
     is_correlation: bool
 
 
-def _parse_ts(event: dict) -> dt.datetime:
-    return dt.datetime.fromisoformat(str(event["timestamp"]).replace("Z", "+00:00"))
-
-
-def _correlation_alerts(base: Any, correlation: Any, events: list[dict]) -> int:
-    """Number of groups/windows whose `event_count` crosses the threshold."""
-    from prompthound.matcher import rule_matches
-
-    if str(correlation.type) != "event_count":
-        # The pack only ships event_count correlations; anything else is reported
-        # as "unsupported" (0) rather than silently miscounted.
-        return 0
-    group_by = correlation.group_by
-    span = dt.timedelta(seconds=correlation.timespan.seconds)
-    threshold = correlation.condition.count
-    op = correlation.condition.op.name
-    passes = {
-        "GTE": lambda c: c >= threshold,
-        "GT": lambda c: c > threshold,
-        "LTE": lambda c: c <= threshold,
-        "LT": lambda c: c < threshold,
-    }[op]
-
-    groups: dict[tuple, list[dt.datetime]] = defaultdict(list)
-    for event in events:
-        if not rule_matches(base, event):
-            continue
-        key = tuple(event.get(g) for g in group_by)
-        groups[key].append(_parse_ts(event))
-
-    alerts = 0
-    for times in groups.values():
-        times.sort()
-        for start in times:  # window anchored at each matched event
-            if passes(sum(1 for t in times if start <= t < start + span)):
-                alerts += 1
-                break
-    return alerts
-
-
 def evaluate_rule(path: Path, events: list[dict]) -> tuple[int, bool]:
     """Return ``(#hits, is_correlation)`` for one rule file over the dataset.
 
     Selection rule → number of matching events. Correlation rule → number of
     groups that fire (each is one alert).
     """
-    from sigma.collection import SigmaCollection
-    from sigma.correlations import SigmaCorrelationRule
+    from prompthound.correlate import evaluate_rule_file
 
-    from prompthound.matcher import load_rule, rule_matches
-
-    collection = SigmaCollection.load_ruleset([str(path)])
-    correlations = [r for r in collection.rules if isinstance(r, SigmaCorrelationRule)]
-    if correlations:
-        base = next(r for r in collection.rules if not isinstance(r, SigmaCorrelationRule))
-        return _correlation_alerts(base, correlations[0], events), True
-    rule = load_rule(path)
-    return sum(1 for e in events if rule_matches(rule, e)), False
+    result = evaluate_rule_file(path, events)
+    return result.hits, result.is_correlation
 
 
 def _meta_strings(path: Path) -> tuple[str, str, str]:

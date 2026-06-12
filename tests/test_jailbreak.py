@@ -7,24 +7,19 @@ the correlation fires when such filtered attempts repeat within one conversation
 over a short window -- the signature of an adversary iterating on a jailbreak.
 
 The offline matcher evaluates the *base* detection per event; the windowed
-per-conversation count the single-event matcher can't express is applied here
-(the same approach as ``test_dos_cost_abuse.py``). Conversion is checked through
-the real toolchain.
+per-conversation count comes from the shared correlation evaluator
+(``prompthound.correlate``). Conversion is checked through the real toolchain.
 
 Run just these with ``pytest -k jailbreak -q``.
 """
 
 from __future__ import annotations
 
-import datetime as dt
 import json
-from collections import defaultdict
 from pathlib import Path
 
-from sigma.collection import SigmaCollection
-from sigma.correlations import SigmaCorrelationRule
-
 from prompthound.convert import convert_rule
+from prompthound.correlate import correlation_hits, load_correlation_file
 from prompthound.matcher import rule_matches
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -38,37 +33,12 @@ def _samples(group: str) -> list[dict]:
 
 
 def _base_and_correlation():
-    collection = SigmaCollection.load_ruleset([str(RULE_PATH)])
-    base = next(r for r in collection.rules if not isinstance(r, SigmaCorrelationRule))
-    correlation = next(r for r in collection.rules if isinstance(r, SigmaCorrelationRule))
-    return base, correlation
+    return load_correlation_file(RULE_PATH)
 
 
 def _correlation_hits(events: list[dict]) -> list[tuple]:
     """``(group_key, count)`` for each group/window crossing the threshold."""
-    base, correlation = _base_and_correlation()
-    assert str(correlation.type) == "event_count", "evaluator only supports event_count"
-    group_by = correlation.group_by
-    span = dt.timedelta(seconds=correlation.timespan.seconds)
-    threshold = correlation.condition.count
-
-    groups: dict[tuple, list[dt.datetime]] = defaultdict(list)
-    for event in events:
-        if not rule_matches(base, event):
-            continue
-        key = tuple(event.get(g) for g in group_by)
-        ts = dt.datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
-        groups[key].append(ts)
-
-    hits = []
-    for key, times in groups.items():
-        times.sort()
-        for start in times:
-            count = sum(1 for t in times if start <= t < start + span)
-            if count >= threshold:
-                hits.append((key, count))
-                break
-    return hits
+    return list(correlation_hits(RULE_PATH, events))
 
 
 # --- fire / silence -----------------------------------------------------------

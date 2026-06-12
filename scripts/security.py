@@ -138,7 +138,10 @@ def scan_text(rel: str, text: str) -> list[SecretFinding]:
     for kind, pattern in _MULTILINE_SECRET_PATTERNS:
         for match in pattern.finditer(text):
             lineno = text.count("\n", 0, match.start()) + 1
-            if lineno <= len(lines) and ALLOWLIST_MARKER in lines[lineno - 1]:
+            # Honor the marker on the block's first line OR the line above it —
+            # a pragma comment naturally sits just before a PEM header.
+            marked_lines = lines[max(lineno - 2, 0) : lineno]
+            if any(ALLOWLIST_MARKER in line for line in marked_lines):
                 continue
             findings.append(SecretFinding(rel, lineno, kind, match.group(0).splitlines()[0]))
     return findings

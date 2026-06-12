@@ -4,6 +4,7 @@
 
 <br>
 
+[![CI](https://github.com/notacop38/prompthound/actions/workflows/ci.yml/badge.svg)](https://github.com/notacop38/prompthound/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: Apache-2.0 + DRL-1.1](https://img.shields.io/badge/license-Apache--2.0%20%2B%20DRL--1.1-blue)](LICENSE)
 [![Rules: 15](https://img.shields.io/badge/rules-15-3fb950)](out/coverage/coverage.md)
@@ -44,7 +45,7 @@ Compiled to **Splunk SPL** and **Sentinel KQL** ([exact queries below](#one-rule
 
 ![PromptHound demo (animated): generate telemetry, run the rule pack, build the coverage map](docs/assets/demo.svg)
 
-> Full captured run ([`docs/assets/demo_output.txt`](docs/assets/demo_output.txt)): 84 events, **10/15 rules fired**, 17 hits.
+> Full captured run ([`docs/assets/demo_output.txt`](docs/assets/demo_output.txt)): 124 events, **15/15 rules fired**, 25 hits. Every shipped rule is exercised — a drift guard in the test suite keeps it that way.
 
 ## How it works: one rule, many targets
 
@@ -140,7 +141,7 @@ make release  # regenerate all SPL/KQL/coverage artifacts into out/ + a versione
 make test     # the pytest suite
 ```
 
-There is **no hosted CI**: the local runner (`scripts/ci.py`) is the gate, run on demand. `make ci` / `make test` need the pinned dev toolchain: `pip install -r requirements-dev.lock` (or `make setup`); see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The gate is one runner, `scripts/ci.py`: GitHub Actions executes it on every pull request and every push to `main`, and `make ci` runs the identical sequence locally before you push. `make ci` / `make test` need the pinned dev toolchain: `pip install -r requirements-dev.lock` (or `make setup`); see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Why PromptHound
 
@@ -173,7 +174,7 @@ PromptHound is **inspired by and complementary to** existing work; the honest co
 
 ## Contributing
 
-A new rule is one Sigma file plus a positive **and** negative sample, with OWASP + ATLAS + tier metadata; `make ci` enforces the rest. Fork it, add a rule, get it merged via CI.
+A new rule is one Sigma file plus a positive **and** negative sample (as fixtures and as a declared generator signature), with OWASP + ATLAS + tier metadata; `make ci` enforces the rest. Fork it, add a rule, get it merged via CI.
 
 - **[`CONTRIBUTING.md`](CONTRIBUTING.md):** setup, the authoring standard, and the merge gate.
 - **[`docs/authoring.md`](docs/authoring.md):** add a rule in ~10 minutes (worked walkthrough).
@@ -188,7 +189,7 @@ A new rule is one Sigma file plus a positive **and** negative sample, with OWASP
 - **[`docs/schema.md`](docs/schema.md):** the audit-log schema, with examples.
 - **[`CHANGELOG.md`](CHANGELOG.md):** what changed, by version.
 
-> **Status:** pre-1.0 and actively built out: 15 rules across 7 attack categories (6/10 OWASP LLM categories), a full offline demo, a local CI runner, and a versioned release bundle are in place. The previously-open decisions are now settled: **Apache-2.0 + DRL 1.1** licensing (**D7**) and the secondary **OWASP Agentic** mapping for agent rules (**D6**). See the checklist.
+> **Status:** pre-1.0 and actively built out: 15 rules across 7 attack categories (6/10 OWASP LLM categories), a full offline demo proving all 15, a CI gate run locally and on GitHub Actions, and a versioned release bundle are in place. The previously-open decisions are now settled: **Apache-2.0 + DRL 1.1** licensing (**D7**) and the secondary **OWASP Agentic** mapping for agent rules (**D6**). See the checklist.
 
 ## License
 

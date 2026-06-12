@@ -6,27 +6,21 @@ its output (derived markers, PRD §10.8); the correlation fires when one
 principal receives an abnormal *volume* of such responses in a window — bulk
 exfiltration through the model's outputs.
 
-The single-event matcher can't express a windowed aggregation, so fire/silence
-reuses ``rule_matches`` for the base detection, then groups by the correlation's
-``group-by`` over its ``timespan`` and applies the threshold (the same approach
-as ``test_dos_cost_abuse.py``). Conversion is checked through the real
-toolchain: the full ``event_count`` correlation converts to SPL; KQL covers the
-base detection plus the documented ``// summarize`` workaround.
+Fire/silence reuses the shared windowed correlation evaluator
+(``prompthound.correlate``). Conversion is checked through the real toolchain:
+the full ``event_count`` correlation converts to SPL; KQL covers the base
+detection plus the documented ``// summarize`` workaround.
 
 Run just these with ``pytest -k exfil -q``.
 """
 
 from __future__ import annotations
 
-import datetime as dt
 import json
-from collections import defaultdict
 from pathlib import Path
 
-from sigma.collection import SigmaCollection
-from sigma.correlations import SigmaCorrelationRule
-
 from prompthound.convert import convert_rule
+from prompthound.correlate import correlation_hits, load_correlation_file
 from prompthound.matcher import rule_matches
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -36,10 +30,7 @@ STEM = "pii_secret_exfiltration_in_output"
 
 
 def _base_and_correlation():
-    collection = SigmaCollection.load_ruleset([str(RULE_PATH)])
-    base = next(r for r in collection.rules if not isinstance(r, SigmaCorrelationRule))
-    correlation = next(r for r in collection.rules if isinstance(r, SigmaCorrelationRule))
-    return base, correlation
+    return load_correlation_file(RULE_PATH)
 
 
 def _samples(group: str) -> list[dict]:
@@ -47,29 +38,7 @@ def _samples(group: str) -> list[dict]:
 
 
 def _correlation_hits(events: list[dict]) -> list[tuple]:
-    base, correlation = _base_and_correlation()
-    assert str(correlation.type) == "event_count", "evaluator only supports event_count"
-    group_by = correlation.group_by
-    span = dt.timedelta(seconds=correlation.timespan.seconds)
-    threshold = correlation.condition.count
-
-    groups: dict[tuple, list[dt.datetime]] = defaultdict(list)
-    for event in events:
-        if not rule_matches(base, event):
-            continue
-        key = tuple(event.get(g) for g in group_by)
-        ts = dt.datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
-        groups[key].append(ts)
-
-    hits = []
-    for key, times in groups.items():
-        times.sort()
-        for start in times:  # window anchored at each matched event
-            count = sum(1 for t in times if start <= t < start + span)
-            if count >= threshold:
-                hits.append((key, count))
-                break
-    return hits
+    return list(correlation_hits(RULE_PATH, events))
 
 
 def test_exfil_fires_on_volume_burst() -> None:
