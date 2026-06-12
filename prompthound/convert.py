@@ -149,7 +149,9 @@ def _summarize_comment(correlation: object, field_map: Mapping[str, str]) -> str
     ts = field_map.get("timestamp", "timestamp")
     span = correlation.timespan.spec  # type: ignore[attr-defined]
     cond = correlation.condition  # type: ignore[attr-defined]
-    op = _KQL_COMPARE[cond.op.name]
+    op = _KQL_COMPARE.get(cond.op.name)
+    if op is None:
+        raise ValueError(f"unsupported correlation condition operator: {cond.op.name}")
     ctype = str(correlation.type)  # type: ignore[attr-defined]
     fieldref = field_map.get(cond.fieldref, cond.fieldref) if cond.fieldref else None
     agg = {

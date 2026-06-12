@@ -75,12 +75,19 @@ def build_artifacts() -> tuple[dict[Path, str], list[str]]:
 
         # Every generated format must be non-empty -- including savedsearches.conf,
         # which ships as part of the toolchain (D5) and is easy to miss otherwise.
-        if not spl_text.strip():
-            errors.append(f"{rel}: empty SPL")
-        if not kql_text.strip():
-            errors.append(f"{rel}: empty KQL")
-        if not saved_text.strip():
-            errors.append(f"{rel}: empty savedsearches.conf")
+        # Each skip path records its error first, so a rule can never silently
+        # drop out of the artifact set.
+        empty = [
+            label
+            for label, text in (
+                ("SPL", spl_text),
+                ("KQL", kql_text),
+                ("savedsearches.conf", saved_text),
+            )
+            if not text.strip()
+        ]
+        for label in empty:
+            errors.append(f"{rel}: empty {label}")
         if (result.spl, result.kql, result.savedsearches) != (
             again.spl,
             again.kql,
@@ -88,7 +95,7 @@ def build_artifacts() -> tuple[dict[Path, str], list[str]]:
         ):
             errors.append(f"{rel}: conversion is not byte-stable across runs")
             continue
-        if not (spl_text.strip() and kql_text.strip() and saved_text.strip()):
+        if empty:
             continue
 
         # Mirror the source layout under out/ so nested categories never collide.
