@@ -3,29 +3,26 @@
 PromptHound's second vertical slice: the first Sigma *correlation* rule, used to
 exercise windowed aggregation once before the rule pack scales (PRD §11 #7).
 
-The single-event matcher (`prompthound/matcher.py`) can't express a windowed
-aggregation, so fire/silence here reuses `rule_matches` to filter the rule's
-*base* detection per event, then groups by the correlation's `group-by` field
-over its `timespan` and applies the threshold. Conversion is checked through the
-real toolchain (`prompthound/convert.py`): the full `event_count` correlation
-converts to SPL; KQL covers the base detection plus the documented `summarize`
-workaround (the Kusto backend emits no correlations — see docs/authoring.md).
+Fire/silence reuses the shared windowed correlation evaluator
+(``prompthound.correlate``), which filters the rule's *base* detection per
+event with the offline matcher, then applies the correlation's group-by /
+timespan / threshold. Conversion is checked through the real toolchain
+(`prompthound/convert.py`): the full `event_count` correlation converts to SPL;
+KQL covers the base detection plus the documented `summarize` workaround (the
+Kusto backend emits no correlations — see docs/authoring.md).
 
 Run just these with ``pytest -k token_cost -q``.
 """
 
 from __future__ import annotations
 
-import datetime as dt
 import json
-from collections import defaultdict
 from pathlib import Path
 
-from sigma.collection import SigmaCollection
 from sigma.correlations import SigmaCorrelationRule
 
 from prompthound.convert import convert_rule
-from prompthound.matcher import rule_matches
+from prompthound.correlate import correlation_hits, load_correlation_file
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RULE_PATH = REPO_ROOT / "rules" / "dos_cost_abuse" / "token_cost_spike_per_principal.yml"
@@ -35,10 +32,7 @@ STEM = "token_cost_spike_per_principal"
 
 def _load() -> tuple[object, SigmaCorrelationRule]:
     """Return (base detection rule, correlation rule) from the rule file."""
-    collection = SigmaCollection.load_ruleset([str(RULE_PATH)])
-    base = next(r for r in collection.rules if not isinstance(r, SigmaCorrelationRule))
-    correlation = next(r for r in collection.rules if isinstance(r, SigmaCorrelationRule))
-    return base, correlation
+    return load_correlation_file(RULE_PATH)
 
 
 def _samples(group: str) -> list[dict]:
@@ -46,40 +40,8 @@ def _samples(group: str) -> list[dict]:
 
 
 def _correlation_hits(events: list[dict]) -> list[tuple]:
-    """Return ``(group_key, count)`` for each group/window crossing the threshold.
-
-    Reuses the offline matcher for the base detection, then does the windowed
-    per-principal counting the matcher can't express.
-    """
-    base, correlation = _load()
-    assert str(correlation.type) == "event_count", "evaluator only supports event_count"
-    group_by = correlation.group_by
-    span = dt.timedelta(seconds=correlation.timespan.seconds)
-    threshold = correlation.condition.count
-    op = correlation.condition.op.name
-    passes = {
-        "GTE": lambda c: c >= threshold,
-        "GT": lambda c: c > threshold,
-        "LTE": lambda c: c <= threshold,
-        "LT": lambda c: c < threshold,
-    }[op]
-
-    groups: dict[tuple, list[dt.datetime]] = defaultdict(list)
-    for event in events:
-        if not rule_matches(base, event):
-            continue
-        key = tuple(event.get(g) for g in group_by)
-        ts = dt.datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
-        groups[key].append(ts)
-
-    hits = []
-    for key, times in groups.items():
-        times.sort()
-        for start in times:  # window anchored at each matched event
-            if passes(sum(1 for t in times if start <= t < start + span)):
-                hits.append((key, sum(1 for t in times if start <= t < start + span)))
-                break
-    return hits
+    """Return ``(group_key, count)`` for each group/window crossing the threshold."""
+    return list(correlation_hits(RULE_PATH, events))
 
 
 # --- fire / silence -----------------------------------------------------------

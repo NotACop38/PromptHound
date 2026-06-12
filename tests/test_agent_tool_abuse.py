@@ -13,10 +13,9 @@ AI Agent Tools technique AML.T0085.001):
     tool-call *volume* (resource amplification, ties to LLM10; CurXecute
     CVE-2025-54135 / CVE-2025-54136 anchor).
 
-Selection rules reuse the offline matcher directly (``prompthound.matcher``).
-Correlations reuse it for the *base* detection, then apply the windowed group-by
-count the single-event matcher can't express (same approach as
-``test_dos_cost_abuse.py``). Conversion is checked through the real toolchain.
+Selection rules reuse the offline matcher directly (``prompthound.matcher``);
+correlations reuse the shared windowed evaluator (``prompthound.correlate``).
+Conversion is checked through the real toolchain.
 
 D6 (OWASP Agentic Top 10 secondary tag) is decided: each agent rule carries its
 secondary ``owasp-agentic.tNN`` mapping, asserted below and gated in coverage.
@@ -26,16 +25,14 @@ Run just these with ``pytest -k agent -q``.
 
 from __future__ import annotations
 
-import datetime as dt
 import json
-from collections import defaultdict
 from pathlib import Path
 
 import pytest
-from sigma.collection import SigmaCollection
-from sigma.correlations import SigmaCorrelationRule
 
 from prompthound.convert import convert_rule
+from prompthound.correlate import correlation_hits as _correlation_hits
+from prompthound.correlate import load_correlation_file as _base_and_correlation
 from prompthound.matcher import load_rule, rule_matches
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -45,40 +42,6 @@ SAMPLES_DIR = REPO_ROOT / "generator" / "samples"
 
 def _samples(stem: str, group: str) -> list[dict] | dict:
     return json.loads((SAMPLES_DIR / f"{stem}.{group}.json").read_text())
-
-
-def _base_and_correlation(path: Path):
-    collection = SigmaCollection.load_ruleset([str(path)])
-    base = next(r for r in collection.rules if not isinstance(r, SigmaCorrelationRule))
-    correlation = next(r for r in collection.rules if isinstance(r, SigmaCorrelationRule))
-    return base, correlation
-
-
-def _correlation_hits(path: Path, events: list[dict]) -> list[tuple]:
-    """``(group_key, count)`` for each group/window crossing the threshold."""
-    base, correlation = _base_and_correlation(path)
-    assert str(correlation.type) == "event_count", "evaluator only supports event_count"
-    group_by = correlation.group_by
-    span = dt.timedelta(seconds=correlation.timespan.seconds)
-    threshold = correlation.condition.count
-
-    groups: dict[tuple, list[dt.datetime]] = defaultdict(list)
-    for event in events:
-        if not rule_matches(base, event):
-            continue
-        key = tuple(event.get(g) for g in group_by)
-        ts = dt.datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
-        groups[key].append(ts)
-
-    hits = []
-    for key, times in groups.items():
-        times.sort()
-        for start in times:  # window anchored at each matched event
-            count = sum(1 for t in times if start <= t < start + span)
-            if count >= threshold:
-                hits.append((key, count))
-                break
-    return hits
 
 
 # --- anomalous_tool_call_chain (single selection rule) ------------------------
