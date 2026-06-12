@@ -53,3 +53,14 @@ def test_kql_targets_the_audit_table() -> None:
 def test_kusto_flavours_both_convert(flavour: str) -> None:
     result = convert_rule(SMOKE_RULE, kusto_flavour=flavour)
     assert result.kql and all(query.strip() for query in result.kql)
+
+
+@pytest.mark.parametrize("flavour", ["sentinelasim", "azure_monitor"])
+def test_kql_boolean_equality_uses_double_equals(flavour: str) -> None:
+    # Regression: the pinned Kusto backend renders Sigma `field: true` with the
+    # string-only `=~` operator, which does not compile against a bool column.
+    # The pipeline's postprocessing must rewrite it to `==` (prompthound_kusto.py).
+    rule = REPO_ROOT / "rules" / "insecure_output" / "unsanitized_output_to_sink.yml"
+    kql = "\n".join(convert_rule(rule, kusto_flavour=flavour).kql)
+    assert "output_rendered_unsanitized == true" in kql
+    assert "=~ true" not in kql and "=~ false" not in kql

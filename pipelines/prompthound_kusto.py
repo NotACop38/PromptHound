@@ -28,7 +28,12 @@ from sigma.backends.kusto import KustoBackend
 from sigma.pipelines.azuremonitor import azure_monitor_pipeline
 from sigma.pipelines.sentinelasim import sentinel_asim_pipeline
 from sigma.processing.conditions import LogsourceCondition
-from sigma.processing.pipeline import ProcessingItem, ProcessingPipeline
+from sigma.processing.pipeline import (
+    ProcessingItem,
+    ProcessingPipeline,
+    QueryPostprocessingItem,
+)
+from sigma.processing.postprocessing import ReplaceQueryTransformation
 from sigma.processing.transformations import FieldMappingTransformation
 
 from prompthound.fieldmap import DEFAULT_QUERY_TABLE, FIELD_MAP
@@ -58,6 +63,26 @@ def _prompthound_field_pipeline() -> ProcessingPipeline:
             ProcessingItem(
                 identifier="prompthound_kusto_field_mapping",
                 transformation=FieldMappingTransformation(mapping),
+                rule_conditions=[LogsourceCondition(product="llm_gateway")],
+            ),
+        ],
+        # The pinned Kusto backend (1.0.x) renders Sigma boolean equality with the
+        # case-insensitive *string* operator: ``field =~ true``. KQL's ``=~``/``!~``
+        # are string-only, so that query fails to compile against a real ``bool``
+        # column. Rewrite bare boolean comparisons to ``==`` / ``!=``.
+        postprocessing_items=[
+            QueryPostprocessingItem(
+                identifier="prompthound_kusto_bool_equals",
+                transformation=ReplaceQueryTransformation(
+                    pattern=r"=~ (true|false)\b", replacement=r"== \1"
+                ),
+                rule_conditions=[LogsourceCondition(product="llm_gateway")],
+            ),
+            QueryPostprocessingItem(
+                identifier="prompthound_kusto_bool_not_equals",
+                transformation=ReplaceQueryTransformation(
+                    pattern=r"!~ (true|false)\b", replacement=r"!= \1"
+                ),
                 rule_conditions=[LogsourceCondition(product="llm_gateway")],
             ),
         ],
