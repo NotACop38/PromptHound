@@ -13,9 +13,9 @@
     "event.outcome"
   ],
   "properties": {
-    "schema_version": { "type": "string", "description": "[T1] Schema version, e.g. 0.1." },
+    "schema_version": { "type": "string", "enum": ["0.1"], "description": "[T1] Schema version, e.g. 0.1." },
     "timestamp": { "type": "string", "format": "date-time", "description": "[T1] Event time (ISO 8601)." },
-    "event.id": { "type": "string", "description": "[T1] Unique event id (uuid)." },
+    "event.id": { "type": "string", "minLength": 1, "description": "[T1] Unique event id (uuid)." },
     "event.action": {
       "type": "string",
       "description": "[T1] gen_ai.operation.name.",
@@ -27,14 +27,14 @@
       "enum": ["success", "failure", "blocked"]
     },
 
-    "gen_ai.conversation.id": { "type": "string", "description": "[T1] Session/conversation id." },
+    "gen_ai.conversation.id": { "type": "string", "minLength": 1, "description": "[T1] Session/conversation id." },
     "gen_ai.provider.name": { "type": "string", "description": "[T1] e.g. openai, anthropic, aws.bedrock." },
     "gen_ai.request.model": { "type": "string", "description": "[T1] Requested model." },
     "gen_ai.response.model": { "type": "string", "description": "[T1] Responding model." },
     "app.name": { "type": "string", "description": "[T1] LLM app/gateway name." },
     "app.env": { "type": "string", "enum": ["prod", "staging", "dev"], "description": "[T1] Environment." },
-    "user.id": { "type": "string", "description": "[T1] Principal id (pseudonymous)." },
-    "user.tenant.id": { "type": "string", "description": "[T1] Tenant/org." },
+    "user.id": { "type": "string", "minLength": 1, "description": "[T1] Principal id (pseudonymous)." },
+    "user.tenant.id": { "type": "string", "minLength": 1, "description": "[T1] Tenant/org." },
     "user.roles": { "type": "array", "items": { "type": "string" }, "description": "[T1] Authz context." },
     "api_key.id": { "type": "string", "description": "[T1] Hashed/opaque key id (never the secret)." },
     "source.ip": { "type": "string", "description": "[T1] Client IP." },

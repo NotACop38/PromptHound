@@ -11,23 +11,23 @@ PromptHound: offline detection demo
 ──────────────────────────────────────────────────────────────────────────────
 2. Evaluate the rule pack against the dataset
 ──────────────────────────────────────────────────────────────────────────────
-  Rule                                                           OWASP         ATLAS                             Tier         Hits
-  ─────────────────────────────────────────────────────────────  ────────────  ────────────────────────────────  ───────────  ────
-  agent_tool_abuse/anomalous_tool_call_chain.yml                 LLM06         AML.T0085.001, AML.TA0015         T1/sel          1
-  agent_tool_abuse/denied_tool_retry_loop.yml                    LLM06         AML.T0085.001, AML.TA0015         T1/corr         1
-  agent_tool_abuse/tool_call_amplification_loop.yml              LLM10, LLM06  AML.T0034, AML.T0029, AML.TA0015  T1/corr         1
-  data_exfiltration/pii_secret_exfiltration_in_output.yml        LLM02         AML.T0024, AML.T0025              T1, T2/corr     1
-  dos_cost_abuse/oversized_max_tokens.yml                        LLM10         AML.T0034, AML.T0029              T1/sel          1
-  dos_cost_abuse/repeated_length_finish_loops.yml                LLM10         AML.T0034, AML.T0029              T1/corr         1
-  dos_cost_abuse/request_rate_burst_per_principal.yml            LLM10         AML.T0029, AML.T0034              T1/corr         1
-  dos_cost_abuse/token_cost_spike_per_principal.yml              LLM10         AML.T0034, AML.T0029              T1/corr         1
-  insecure_output/unsanitized_output_to_sink.yml                 LLM05         -                                 T1/sel          1
-  jailbreak/persona_safety_bypass_loop.yml                       LLM01, LLM06  AML.T0054                         T2/corr         1
-  prompt_injection/direct_injection_marker_count.yml             LLM01         AML.T0051.000                     T1/sel          6
-  prompt_injection/direct_injection_markers.yml                  LLM01         AML.T0051.000                     T2/sel          3
-  prompt_injection/indirect_injection_from_untrusted_source.yml  LLM01         AML.T0051.001                     T2/sel          1
-  system_prompt_extraction/extract_system_prompt_markers.yml     LLM07         AML.T0056                         T2/sel          4
-  system_prompt_extraction/system_prompt_leaked_in_output.yml    LLM07         AML.T0056                         T1, T2/sel      1
+  Rule                                                           OWASP         ATLAS                 Tier        Hits
+  ─────────────────────────────────────────────────────────────  ────────────  ────────────────────  ──────────  ────
+  agent_tool_abuse/anomalous_tool_call_chain.yml                 LLM06         AML.T0085.001         T1/sel         1
+  agent_tool_abuse/denied_tool_retry_loop.yml                    LLM06         AML.T0085.001         T1/corr        1
+  agent_tool_abuse/tool_call_amplification_loop.yml              LLM10, LLM06  AML.T0034, AML.T0029  T1/corr        1
+  data_exfiltration/pii_secret_exfiltration_in_output.yml        LLM02         AML.T0024, AML.T0025  T1/corr        1
+  dos_cost_abuse/oversized_max_tokens.yml                        LLM10         AML.T0034, AML.T0029  T1/sel         1
+  dos_cost_abuse/repeated_length_finish_loops.yml                LLM10         AML.T0034, AML.T0029  T1/corr        1
+  dos_cost_abuse/request_rate_burst_per_principal.yml            LLM10         AML.T0029, AML.T0034  T1/corr        1
+  dos_cost_abuse/token_cost_spike_per_principal.yml              LLM10         AML.T0034, AML.T0029  T1/corr        1
+  insecure_output/unsanitized_output_to_sink.yml                 LLM05         -                     T1/sel         1
+  jailbreak/persona_safety_bypass_loop.yml                       LLM01, LLM06  AML.T0054             T2/corr        1
+  prompt_injection/direct_injection_marker_count.yml             LLM01         AML.T0051.000         T1/sel         6
+  prompt_injection/direct_injection_markers.yml                  LLM01         AML.T0051.000         T2/sel         3
+  prompt_injection/indirect_injection_from_untrusted_source.yml  LLM01         AML.T0051.001         T2/sel         1
+  system_prompt_extraction/extract_system_prompt_markers.yml     LLM07         AML.T0056             T2/sel         4
+  system_prompt_extraction/system_prompt_leaked_in_output.yml    LLM07         AML.T0056             T1, T2/sel     1
 
   15/15 rules fired · 25 total hits across 124 events (Tier = T1 operational / T2 content; sel = selection, corr = correlation)
 
@@ -39,7 +39,7 @@ PromptHound: offline detection demo
   → wrote out/coverage/coverage.md
 
   Open the visual coverage map in a browser:
-    file:///home/user/PromptHound/out/coverage/coverage.html
+    out/coverage/coverage.html
   Markdown / ATLAS Navigator layer alongside it under out/coverage/
 
 ──────────────────────────────────────────────────────────────────────────────

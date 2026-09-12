@@ -1,5 +1,6 @@
 [
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:00:00Z",
     "event.id": "loop-neg-00",
@@ -20,6 +21,7 @@
     "cost.usd": 0.08592
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:00:30Z",
     "event.id": "loop-neg-01",
@@ -40,6 +42,7 @@
     "cost.usd": 0.08592
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:01:00Z",
     "event.id": "loop-neg-02",
@@ -60,6 +63,7 @@
     "cost.usd": 0.08592
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:01:30Z",
     "event.id": "loop-neg-03",

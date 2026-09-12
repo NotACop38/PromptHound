@@ -8,10 +8,11 @@ There is deliberately **no** ``pysigma-backend-sentinel`` — it does not exist
 (D5). Sentinel KQL comes from the Kusto backend driven by one of its bundled
 pipelines:
 
-* ``sentinelasim`` — the default, aligning to Sentinel's ASIM normalized schema.
-* ``azure_monitor`` — a documented fallback for plain Log Analytics
-  deployments without ASIM (PRD §17: "Sentinel ASIM table mismatch → fall back
-  to ``azure_monitor``").
+* ``sentinelasim`` — the default backend pipeline.
+* ``azure_monitor`` — an alternative backend pipeline for Log Analytics.
+
+Both require the custom PromptHound table contract in docs/deployment.md; the
+pipeline name does not turn PromptHound's telemetry into an ASIM schema.
 
 Neither bundled pipeline knows our ``llm_gateway`` logsource, so they would not
 assign a query table. We therefore (a) flatten our schema fields ourselves and
@@ -27,6 +28,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from sigma.backends.kusto import KustoBackend
+from sigma.conditions import ConditionAND, ConditionFieldEqualsValueExpression, ConditionOR
+from sigma.conversion.deferred import DeferredQueryExpression
+from sigma.conversion.state import ConversionState
 from sigma.pipelines.azuremonitor import azure_monitor_pipeline
 from sigma.pipelines.sentinelasim import sentinel_asim_pipeline
 from sigma.processing.conditions import LogsourceCondition
@@ -37,12 +41,48 @@ from sigma.processing.pipeline import (
 )
 from sigma.processing.postprocessing import QueryPostprocessingTransformation
 from sigma.processing.transformations import FieldMappingTransformation
+from sigma.types import SigmaString
 
-from prompthound.fieldmap import DEFAULT_QUERY_TABLE, FIELD_MAP
+from prompthound.fieldmap import DEFAULT_QUERY_TABLE, FIELD_MAP, STRING_ARRAY_FIELDS
 
-#: Kusto pipeline flavours we support. ``sentinelasim`` is the default; switch to
-#: ``azure_monitor`` for non-ASIM Log Analytics deployments (PRD §17).
+#: Kusto pipeline flavours; both use the same custom PromptHound column contract.
 KustoFlavour = Literal["sentinelasim", "azure_monitor"]
+
+
+class PromptHoundKustoBackend(KustoBackend):
+    """Schema-aware fixes for the pinned backend's scalar array comparisons."""
+
+    # The upstream list optimizer changes foo*bar to contains foo AND contains
+    # bar, losing order. Let the normal wildcard conversion retain the pattern.
+    in_expressions_allow_wildcards = False
+    wildcard_match_expression = '{field} matches regex "(?is)\\\\A{regex}\\\\z"'
+
+    def decide_convert_condition_as_in_expression(
+        self, cond: ConditionOR | ConditionAND, state: ConversionState
+    ) -> bool:
+        array_columns = {FIELD_MAP[f] for f in STRING_ARRAY_FIELDS}
+        if any(getattr(arg, "field", None) in array_columns for arg in cond.args):
+            return False
+        return super().decide_convert_condition_as_in_expression(cond, state)
+
+    def convert_condition_field_eq_val_str(
+        self, cond: ConditionFieldEqualsValueExpression, state: ConversionState
+    ) -> str | DeferredQueryExpression:
+        value = cond.value
+        array_columns = {FIELD_MAP[f] for f in STRING_ARRAY_FIELDS}
+        if cond.field in array_columns and isinstance(value, SigmaString):
+            if value.contains_special():
+                raise NotImplementedError(
+                    "string-array fields support exact membership only; "
+                    "wildcard/contains/startswith/endswith predicates are unsupported"
+                )
+            field = self.escape_and_quote_field(cond.field)
+            literal = self.convert_value_str(SigmaString(str(value).lower()), state)
+            # Arrays are ingested as dynamic. Case-fold their JSON encoding
+            # before membership testing to retain Sigma's insensitive match.
+            return f"set_has_element(parse_json(tolower(tostring({field}))), {literal})"
+        return super().convert_condition_field_eq_val_str(cond, state)
+
 
 # Ordering guarantee: ``prompthound_kusto_pipeline`` composes our pipeline as
 # ``field_pipeline + bundled`` and pySigma applies items in list order (it does
@@ -144,7 +184,7 @@ def kusto_backend(
     pipeline = prompthound_kusto_pipeline(query_table, flavour)
     # KustoBackend accepts a ProcessingPipeline at runtime (its __init__ first arg),
     # but the pinned pysigma-backend-kusto stub mistypes the keyword as a dict.
-    return KustoBackend(processing_pipeline=pipeline)  # type: ignore[arg-type]
+    return PromptHoundKustoBackend(processing_pipeline=pipeline)  # type: ignore[arg-type]
 
 
 __all__ = [

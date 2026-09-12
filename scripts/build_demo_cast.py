@@ -75,6 +75,7 @@ def esc(text: str) -> str:
 def main() -> None:
     lines = SRC.read_text(encoding="utf-8").splitlines()
     n = len(lines)
+    width = max(WIDTH, int(max((len(sanitize(line)) for line in lines), default=0) * 8) + 44)
     height = int(TOP + STEP * n + 24)
 
     keyframes: list[str] = []
@@ -106,6 +107,9 @@ def main() -> None:
         "  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}"
     )
 
+    keyframes.append(
+        "  @media (prefers-reduced-motion:reduce){text,.cur{animation:none!important}}"
+    )
     style = "\n".join(keyframes)
     body = "\n".join(texts)
     font = "SFMono-Regular,Consolas,Menlo,monospace"
@@ -113,17 +117,17 @@ def main() -> None:
 
     svg = "\n".join(
         [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}"'
-            f' height="{height}" viewBox="0 0 {WIDTH} {height}"'
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}"'
+            f' height="{height}" viewBox="0 0 {width} {height}"'
             f' font-family="{font}" font-size="13">',
             f"  <style>\n{style}\n  </style>",
-            f'  <rect width="{WIDTH}" height="{height}" rx="10" fill="{BG}"/>',
-            f'  <rect width="{WIDTH}" height="34" rx="10" fill="{BAR}"/>',
-            f'  <rect y="20" width="{WIDTH}" height="14" fill="{BAR}"/>',
+            f'  <rect width="{width}" height="{height}" rx="10" fill="{BG}"/>',
+            f'  <rect width="{width}" height="34" rx="10" fill="{BAR}"/>',
+            f'  <rect y="20" width="{width}" height="14" fill="{BAR}"/>',
             '  <circle cx="20" cy="17" r="6" fill="#bf616a"/>',
             '  <circle cx="40" cy="17" r="6" fill="#ebcb8b"/>',
             '  <circle cx="60" cy="17" r="6" fill="#a3be8c"/>',
-            f'  <text x="{WIDTH // 2}" y="22" fill="{MUTED}" font-size="12"'
+            f'  <text x="{width // 2}" y="22" fill="{MUTED}" font-size="12"'
             f' text-anchor="middle">{title}</text>',
             body,
             f'  <rect class="cur" x="22" y="{cursor_y - 11:.1f}" width="8"'

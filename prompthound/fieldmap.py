@@ -6,13 +6,14 @@ Splunk SPL and Sentinel KQL stay in lock-step: a field renamed here changes both
 backends at once.
 
 Why map at all? The audit-log schema (PRD §10) uses OpenTelemetry-style dotted
-field names (``gen_ai.usage.input_tokens``). KQL column references cannot contain
-dots, so a mapping is mandatory for the Kusto backend; we apply the *same* map to
+field names (``gen_ai.usage.input_tokens``). KQL dotted column names require
+bracket quoting. We use a predictable flat
+column contract for ingestion; we apply the *same* map to
 Splunk so a given schema field resolves to the identical column in both SIEMs.
 
-Mapping rule: dots become underscores (``a.b.c`` → ``a_b_c``). This is mechanical
-and lossless — the SIEM column name is recoverable from the schema field and vice
-versa — which keeps generated queries legible against a flattened audit table.
+Mapping rule: registered dots become underscores (``a.b.c`` → ``a_b_c``).
+The explicit registry makes this reversible for known fields; arbitrary field
+names can collide and must be rejected by the ingestion adapter.
 
 The rationale is documented for rule authors in ``docs/authoring.md``.
 """
@@ -30,7 +31,7 @@ DEFAULT_QUERY_TABLE = "PromptHoundAuditLog_CL"
 # Canonical audit-log field names, grouped exactly as in PRD §10. Every dotted
 # field a rule may key on is listed so the mapping is explicit and reviewable
 # (not silently inferred). Update this list when the schema (PRD §10) changes.
-_SCHEMA_FIELDS: tuple[str, ...] = (
+SCHEMA_FIELDS: tuple[str, ...] = (
     # 10.1 Envelope, identity, network
     "schema_version",
     "timestamp",
@@ -109,7 +110,22 @@ def _to_column(field: str) -> str:
 #: mapping at import time. Only fields that actually contain a dot are remapped;
 #: already-flat fields (``timestamp``) are intentionally omitted (no-op).
 FIELD_MAP: Mapping[str, str] = MappingProxyType(
-    {field: _to_column(field) for field in _SCHEMA_FIELDS if "." in field}
+    {field: _to_column(field) for field in SCHEMA_FIELDS if "." in field}
 )
 
 __all__ = ["DEFAULT_QUERY_TABLE", "FIELD_MAP"]
+
+# Array-of-string columns need membership predicates, not scalar KQL equality.
+STRING_ARRAY_FIELDS = frozenset(
+    {
+        "user.roles",
+        "gen_ai.response.finish_reasons",
+        "guardrail.input.categories",
+        "guardrail.output.categories",
+        "gen_ai.data_source.id",
+        "rag.source.types",
+        "tool.call.chain",
+        "content.output.pii.types",
+        "content.output.secret.types",
+    }
+)

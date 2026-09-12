@@ -49,9 +49,15 @@ def _correlation_hits(events: list[dict]) -> list[tuple]:
 
 def test_token_cost_spike_fires_on_burst() -> None:
     hits = _correlation_hits(_samples("positive"))
-    assert hits == [(("u-burst-9001",), 12)], (
-        "correlation should fire on a single principal's high-token burst"
-    )
+    assert hits == [
+        (
+            (
+                "tenant-demo",
+                "u-burst-9001",
+            ),
+            12,
+        )
+    ], "correlation should fire on a single principal's high-token burst"
 
 
 def test_token_cost_spike_silent_on_normal_usage() -> None:
@@ -85,7 +91,7 @@ def test_token_cost_spike_has_required_metadata() -> None:
 EXPECTED_SPL = """event_action IN ("chat", "text_completion") gen_ai_usage_total_tokens>=8000
 
 | bin _time span=5m
-| stats count as event_count by _time user_id
+| stats count as event_count by _time user_tenant_id user_id
 
 | search event_count >= 10"""
 
@@ -106,5 +112,7 @@ def test_token_cost_spike_kql_is_base_plus_workaround() -> None:
     assert kql.strip(), "KQL must be non-empty"
     assert "PromptHoundAuditLog_CL" in kql
     assert "gen_ai_usage_total_tokens >= 8000" in kql  # base detection
-    assert "// | summarize event_count = count() by user_id, bin(timestamp, 5m)" in kql
-    assert "// | where event_count >= 10" in kql
+    assert (
+        "| summarize event_count = count() by user_tenant_id, user_id, bin(timestamp, 300s)" in kql
+    )
+    assert "| where event_count >= 10" in kql

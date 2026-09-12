@@ -15,7 +15,7 @@ service, or an attack tool. The threat model follows from that.
 | Asset | Why it matters |
 |---|---|
 | **The rule pack** (`rules/*.yml`) | The detection IP. Must stay correct, portable, and *defensive* (signatures, not payloads). |
-| **The audit-log schema** (`schema/`) | The contract detections and telemetry share. Drift breaks both. |
+| **The audit-log schema** (`prompthound/llm_audit_log.schema.json`) | The contract detections and telemetry share. Drift breaks both. |
 | **The synthetic generator** (`prompthound/generator.py`, `generator/`) | Proves rules offline with zero live LLM. Must remain offline and P1-safe. |
 | **Generated artifacts** (`out/`) | SPL/KQL/coverage a user drops into their SIEM. Must be reproducible from source. |
 | **The repository's reputation** | A *defensive* repo. Its value collapses if it doubles as an attack cookbook. |
@@ -97,8 +97,7 @@ Risks we acknowledge and consciously do not mitigate further, with rationale:
 - **`pip-audit` ignore-list.** Advisories accepted in
   `scripts/security.py` (`IGNORED_VULNS`) are those with **no fixed release**
   whose exploitation requires a precondition outside the trust boundary above.
-  - *CVE-2025-69872 (diskcache pickle deserialization → RCE).* Reached only via
-    the **optional** `sigma-cli` extra; no fixed version exists (the advisory is
+  - *CVE-2025-69872 (diskcache pickle deserialization → RCE).* A dependency of the pinned **pySigma runtime**, even without `sigma-cli`; no fixed version exists (the advisory is
     "through 5.6.3", the latest release). Exploitation requires an attacker who
     already has **write access to the local cache directory** — i.e. a
     compromised host, which §4 already places out of scope. Re-evaluate when a

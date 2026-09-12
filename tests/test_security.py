@@ -113,3 +113,11 @@ def test_security_bandit_targets_resolve() -> None:
     present = [t for t in BANDIT_TARGETS if (REPO_ROOT / t).is_dir()]
     assert present, "no bandit scan targets resolve to directories"
     assert "prompthound" in present and "scripts" in present
+
+
+def test_security_redacts_modern_provider_tokens():
+    for prefix in ["sk-proj-", "sk-svcacct-", "sk-ant-api03-"]:
+        secret = prefix + "a" * 30 + "_" + "b" * 30
+        [finding] = scan_text("config", "key=" + secret)
+        assert secret not in finding.excerpt
+        assert finding.kind == "openai-api-key"

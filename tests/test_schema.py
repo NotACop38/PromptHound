@@ -81,7 +81,7 @@ def test_schema_loads_and_is_2020_12() -> None:
 
 def test_missing_schema_file_raises_actionable_error(tmp_path: Path) -> None:
     missing = tmp_path / "does_not_exist.schema.json"
-    with pytest.raises(FileNotFoundError, match="source checkout"):
+    with pytest.raises(FileNotFoundError, match="schema not found"):
         load_schema(missing)
 
 

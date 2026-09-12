@@ -1,5 +1,6 @@
 [
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:20:00Z",
     "event.id": "6a000020-0000-4a00-8000-000000000020",
@@ -24,6 +25,7 @@
     "policy.decision": "block"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:20:40Z",
     "event.id": "6a000021-0000-4a00-8000-000000000021",
@@ -48,6 +50,7 @@
     "policy.decision": "block"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:21:10Z",
     "event.id": "6a000022-0000-4a00-8000-000000000022",

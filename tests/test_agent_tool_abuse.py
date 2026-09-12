@@ -84,7 +84,7 @@ def test_chain_metadata() -> None:
     rule = load_rule(RULES_DIR / f"{CHAIN}.yml")
     tags = {str(t) for t in rule.tags}
     assert "owasp-llm.llm06" in tags
-    assert "attack.atlas.aml.ta0015" in tags  # ATLAS v5.1.0 Command and Control
+    assert "attack.atlas.aml.ta0015" not in tags  # ATLAS v5.1.0 Command and Control
     assert "attack.atlas.aml.t0085.001" in tags  # AI Agent Tools
     assert "prompthound.tier.t1" in tags
     assert rule.references and rule.falsepositives
@@ -109,7 +109,15 @@ DENIED = "denied_tool_retry_loop"
 
 def test_denied_retry_fires_on_loop() -> None:
     hits = _correlation_hits(RULES_DIR / f"{DENIED}.yml", _samples(DENIED, "positive"))
-    assert hits == [(("conv-agent-6002",), 3)]
+    assert hits == [
+        (
+            (
+                "tenant-demo",
+                "conv-agent-6002",
+            ),
+            3,
+        )
+    ]
 
 
 def test_denied_retry_silent_under_threshold() -> None:
@@ -133,7 +141,7 @@ def test_denied_retry_metadata() -> None:
     _base, correlation = _base_and_correlation(RULES_DIR / f"{DENIED}.yml")
     tags = {str(t) for t in correlation.tags}
     assert "owasp-llm.llm06" in tags
-    assert "attack.atlas.aml.ta0015" in tags
+    assert "attack.atlas.aml.ta0015" not in tags
     assert "attack.atlas.aml.t0085.001" in tags
     assert "prompthound.tier.t1" in tags
     assert correlation.references and correlation.falsepositives
@@ -145,11 +153,11 @@ def test_denied_retry_converts() -> None:
     spl = "\n".join(result.spl)
     assert 'tool_call_outcome="denied"' in spl
     assert "bin _time span=5m" in spl
-    assert "by _time gen_ai_conversation_id" in spl
+    assert "by _time user_tenant_id gen_ai_conversation_id" in spl
     assert "event_count >= 3" in spl
     kql = "\n".join(result.kql)
     assert kql.strip() and "PromptHoundAuditLog_CL" in kql
-    assert "// | summarize" in kql  # documented Kusto correlation workaround
+    assert "\n| summarize" in kql  # executable KQL correlation
 
 
 # --- tool_call_amplification_loop (correlation, ties to LLM10) -----------------
@@ -159,7 +167,15 @@ AMP = "tool_call_amplification_loop"
 
 def test_amplification_fires_on_fanout() -> None:
     hits = _correlation_hits(RULES_DIR / f"{AMP}.yml", _samples(AMP, "positive"))
-    assert hits == [(("conv-agent-6004",), 15)]
+    assert hits == [
+        (
+            (
+                "tenant-demo",
+                "conv-agent-6004",
+            ),
+            15,
+        )
+    ]
 
 
 def test_amplification_silent_on_normal_volume() -> None:
@@ -172,7 +188,7 @@ def test_amplification_metadata() -> None:
     tags = {str(t) for t in correlation.tags}
     assert "owasp-llm.llm10" in tags  # resource amplification primary
     assert "owasp-llm.llm06" in tags  # agent tool-abuse cross-ref
-    assert "attack.atlas.aml.ta0015" in tags
+    assert "attack.atlas.aml.ta0015" not in tags
     assert {"attack.atlas.aml.t0034", "attack.atlas.aml.t0029"} <= tags
     assert "prompthound.tier.t1" in tags
     assert correlation.references and correlation.falsepositives
@@ -183,11 +199,11 @@ def test_amplification_converts() -> None:
     assert result.is_correlation
     spl = "\n".join(result.spl)
     assert "bin _time span=2m" in spl
-    assert "by _time gen_ai_conversation_id" in spl
+    assert "by _time user_tenant_id gen_ai_conversation_id" in spl
     assert "event_count >= 15" in spl
     kql = "\n".join(result.kql)
     assert kql.strip() and "PromptHoundAuditLog_CL" in kql
-    assert "// | summarize" in kql
+    assert "\n| summarize" in kql
 
 
 # --- shared invariants across the agent tool-abuse rules ----------------------

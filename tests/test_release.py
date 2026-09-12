@@ -15,7 +15,6 @@ from pathlib import Path
 import pytest
 
 from scripts import release
-from scripts.conversion import OUT_DIR
 
 
 def test_release_dirty_blocker_limits_display(capsys) -> None:
@@ -52,16 +51,21 @@ def test_release_bundle_is_byte_reproducible(
 def test_release_manifest_hashes_match_sources(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
-    _build_into(monkeypatch, tmp_path / "dist")
+    bundle = _build_into(monkeypatch, tmp_path / "dist")
     manifest = json.loads((tmp_path / "dist" / "MANIFEST.json").read_text(encoding="utf-8"))
     assert manifest["name"] == "prompthound-detections"
     assert manifest["version"] == "0.0.0-test"
     assert manifest["file_count"] == len(manifest["files"]) > 0
-    for entry in manifest["files"]:
-        source = OUT_DIR / entry["path"]
-        data = source.read_bytes()
-        assert hashlib.sha256(data).hexdigest() == entry["sha256"], entry["path"]
-        assert len(data) == entry["bytes"], entry["path"]
+    with tarfile.open(bundle, mode="r:gz") as archive:
+        root = "prompthound-detections-0.0.0-test/"
+        expected_names = {root + entry["path"] for entry in manifest["files"]}
+        assert set(archive.getnames()) == expected_names | {root + "MANIFEST.json"}
+        for entry in manifest["files"]:
+            member = archive.extractfile(root + entry["path"])
+            assert member is not None
+            data = member.read()
+            assert hashlib.sha256(data).hexdigest() == entry["sha256"]
+            assert len(data) == entry["bytes"]
 
 
 def test_release_bundle_carries_stamp_and_licenses(
@@ -72,3 +76,23 @@ def test_release_bundle_carries_stamp_and_licenses(
         names = {Path(n).name for n in tar.getnames()}
     for required in ("VERSION", "MANIFEST.json", "README.txt", *release.LICENSE_FILES):
         assert required in names, f"bundle is missing {required}"
+
+
+@pytest.mark.parametrize("version", ["../../escape", "0.2.0/extra", "\n0.2.0", "", "0.2.0\\file"])
+def test_release_rejects_unsafe_versions(version):
+    with pytest.raises(ValueError, match="version"):
+        release._resolve_version(version)
+
+
+def test_release_excludes_stray_output_file(tmp_path, monkeypatch):
+    from prompthound import coverage
+    from scripts import conversion
+
+    out = tmp_path / "out"
+    (out / "coverage").mkdir(parents=True)
+    (out / "coverage" / "private-note.txt").write_text("unintended payload")
+    monkeypatch.setattr(conversion, "OUT_DIR", out)
+    monkeypatch.setattr(conversion, "build_artifacts", lambda: ({}, []))
+    monkeypatch.setattr(coverage, "generate_artifacts", lambda: ({}, []))
+    with pytest.raises(ValueError, match="unexpected"):
+        release._collect_bundle_files()

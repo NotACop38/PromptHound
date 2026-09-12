@@ -1,13 +1,13 @@
 # PromptHound — Product Requirements Document
 
-> **Status:** Draft v0.1 · **Type:** Source of truth · **Last updated:** 2026-06-04
+> **Status:** Draft v0.1 · **Type:** Source of truth · **Last updated:** 2026-09-12
 > This document and `CHECKLIST.md` are the canonical reference for PromptHound. Update them when a decision changes; do not let code drift from them silently.
 
 ---
 
 ## 1. Summary
 
-PromptHound is an open-source, SIEM-ready **detection** library for attacks *against* LLM applications and AI agents. Rules are authored once in [Sigma](https://sigmahq.io/) and auto-converted in the local CI runner to **Splunk SPL** and **Microsoft Sentinel KQL**. The library ships with a **synthetic telemetry generator** so anyone can test the rules offline — generate logs → run rules → see hits and an ATT&CK/OWASP coverage map, in one command.
+PromptHound is an open-source, experimental **detection-content** library for attacks *against* LLM applications and AI agents. Rules are authored once in [Sigma](https://sigmahq.io/) and auto-converted in the local CI runner to **Splunk SPL** and **Microsoft Sentinel KQL**. The library ships with a **synthetic telemetry generator** so anyone can test the rules offline — generate logs → run rules → see hits and an ATT&CK/OWASP coverage map, in one command.
 
 Every rule is mapped to the **OWASP Top 10 for LLM Applications (2025)** and **MITRE ATLAS**, and is proven by pytest to fire on its malicious sample and stay quiet on its benign one.
 
@@ -17,15 +17,10 @@ Every rule is mapped to the **OWASP Top 10 for LLM Applications (2025)** and **M
 
 ## 2. Problem & motivation
 
-The AI-security tooling ecosystem is saturated with **offensive** work — jailbreak collections, red-team frameworks, prompt-injection payload zoos. It is nearly empty on the **defensive blue-team** side: teams shipping LLM apps and agents have almost no off-the-shelf way to answer "what does malicious activity look like in our logs, and how do we alert on it?"
-
-Concretely, the gaps are:
-
-- **No portable detection content.** Detections, where they exist, are vendor-locked (one SIEM) and closed.
-- **No test data.** Even teams that write a rule can't easily prove it works without standing up a live LLM and attacking it — which is operationally and ethically awkward.
-- **No shared taxonomy in the SOC.** Detection engineers know ATT&CK; most have never mapped an LLM attack to ATLAS or the OWASP LLM Top 10.
-
-PromptHound closes all three: portable (Sigma → SPL + KQL), testable (synthetic generator + pytest), and legible (OWASP + ATLAS mappings, coverage map).
+Detection engineers need explicit telemetry contracts, editable queries and
+repeatable examples to evaluate detections for LLM applications. PromptHound
+addresses that workflow. It does not claim the defensive ecosystem is empty or
+that synthetic examples establish real-world effectiveness.
 
 ---
 
@@ -35,7 +30,7 @@ PromptHound closes all three: portable (Sigma → SPL + KQL), testable (syntheti
 - A documented **rule pack** covering the major LLM/agent attack categories (see §11).
 - **Author once, convert everywhere:** Sigma source, SPL + KQL emitted by the local CI runner.
 - **Offline-testable:** a synthetic telemetry generator producing should-alert (positive) and should-not-alert (negative) samples per rule, against a documented audit-log schema.
-- **Provably correct:** pytest asserts each rule fires on its positive sample and is silent on its negative sample.
+- **Regression-tested:** pytest asserts each rule fires on its positive sample and is silent on its negative sample.
 - **Legible coverage:** every rule mapped to OWASP LLM Top 10 + ATLAS, rendered as a visual coverage map.
 - **One-command demo** and a README that lands the value in under 10 seconds.
 - **Lean dependencies**, permissive licensing, easy to contribute to.
@@ -54,8 +49,8 @@ PromptHound closes all three: portable (Sigma → SPL + KQL), testable (syntheti
 | User | What they get |
 |---|---|
 | **Detection engineer** | Sigma source they can fork, plus generated SPL/KQL to drop into their SIEM; tests to validate edits. |
-| **SOC analyst** | Ready-to-deploy alerts and a coverage map showing what's monitored and what's blind. |
-| **AI/ML platform team** | A documented audit-log schema to instrument their gateway against, and detections that work the moment they emit it. |
+| **SOC analyst** | Query templates and a rule-metadata inventory, with explicit qualification requirements. |
+| **AI/ML platform team** | A documented audit-log schema to instrument their gateway against, and a documented route to normalize, ingest, test and tune detections. |
 
 **User stories**
 - *As a detection engineer*, I fork a rule, tweak the threshold, run `pytest`, and see it still passes before I ship.
@@ -67,15 +62,15 @@ PromptHound closes all three: portable (Sigma → SPL + KQL), testable (syntheti
 ## 5. Success metrics
 
 **Community (primary, per project goal):**
-- GitHub stars / forks (vanity but the stated north star).
-- "Time to first wow" < 10 min: clone → one-command demo → coverage map.
+- A reproducible SIEM deployment with verified field completeness and query results.
+- "Time to first reproducible fixture run" < 10 min: clone → one-command demo → coverage map.
 - External contributions: rules or schema mappings submitted by non-maintainers.
 
 **Quality (what makes the above durable):**
 - 100% of rules have a passing positive **and** negative test in CI.
 - 0 rules merged without OWASP + ATLAS metadata.
 - Conversion (SPL + KQL) regenerated and green via the local CI runner (`scripts/ci.py`).
-- Coverage map auto-generated from rule metadata (never hand-maintained → never stale).
+- Coverage map auto-generated from rule metadata (never hand-maintained → checked for drift).
 
 ---
 
@@ -90,7 +85,7 @@ We are **not first**, and the README should be honest about that — it sharpens
 **How PromptHound differs (the wedge):**
 1. **Multi-SIEM by construction** — Sigma → SPL **and** KQL, not one vendor.
 2. **Open source**, contribution-friendly, ecosystem-aligned (Sigma/pySigma).
-3. **Ships its own test data** — the synthetic generator means you can evaluate offline with zero live LLM and zero risk.
+3. **Ships its own test data** — the synthetic generator means you can evaluate offline with zero live LLM and no live targeting.
 4. **Dual framework mapping** — OWASP LLM Top 10 *and* ATLAS, with a generated coverage map.
 5. **Adopts the Tier 1 / Tier 2 model** (good idea, credited) and ties it to a documented, OTel-aligned schema so detections are portable across deployments.
 
@@ -152,6 +147,22 @@ Restates **P1**. Locked as a design rule.
 - **[DECIDED] D6 — OWASP Agentic AI mapping.** Agent rules (`rules/agent_tool_abuse/`) carry a **secondary** `owasp-agentic.tNN` tag against the *OWASP Agentic AI — Threats and Mitigations* taxonomy (T1–T15). The metadata gate requires it for agent rules and the coverage map renders an Agentic section; the OWASP LLM Top 10 remains the **primary** user-facing taxonomy. (Catalog in `coverage/build_coverage.py`; re-verify ids at author time.)
 - **[DECIDED] D7 — Licensing.** Code & docs under **Apache-2.0** (`LICENSE`, `NOTICE`); detection content — the rules under `rules/` and the SPL/KQL generated from them under `out/` — under **DRL 1.1** (`LICENSE-RULES`). The distributed wheel is code only, so it is Apache-2.0.
 - **[DECIDED] D8 — Packaging of generated content.** A versioned, byte-reproducible **raw-query bundle** ships now via `scripts/release.py` (`out/dist/prompthound-detections-<version>.tar.gz`: SPL + KQL + coverage + a `MANIFEST.json` with a per-file sha256 + the licenses). Deployable per-SIEM packaging (a Splunk app / Sentinel ARM template) remains a documented fast-follow.
+
+### D10 — Deployment and evidence contract [DECIDED]
+Query templates require explicitly configured ingestion, column types, event
+time, identity scope and scheduling. Both backends emit executable event-count
+correlations over fixed UTC buckets; the offline evaluator follows those bucket
+semantics and summarizes the first qualifying bucket per group. Boundary misses
+are documented and tested. All shipped correlations group by tenant plus their
+principal/conversation key. Unsupported correlation shapes fail conversion,
+including non-scalar group keys. String-array predicates support exact membership
+only; the tool-chain rule matches complete names from an application inventory.
+
+The schema ships in the wheel; `prompthound.normalize` validates and maps audit
+events without uploads, rejecting duplicate JSON names before any values are lost.
+Derived detectors remain upstream responsibilities.
+Coverage means rule metadata presence; production effectiveness needs independent
+traffic evaluation. `docs/deployment.md` defines the qualification steps.
 
 ### Open decisions
 - **[OPEN] D9 — Name check.** Confirm "PromptHound" is clear on PyPI + GitHub.
@@ -323,7 +334,7 @@ Malicious signature — system-prompt extraction attempt (should alert):
 | 3 | System-prompt / instruction extraction | LLM07 | `AML.T0056` + `AML.T0051.000` | T2 (+D) | Extraction markers / `contains_system_prompt` |
 | 4 | Jailbreaks | LLM01 (×LLM06) | `AML.T0054` | T2 | Persona/safety-bypass markers + repeated `content_filter` |
 | 5 | Sensitive-data / PII exfiltration | LLM02 | `AML.T0024` (×`AML.T0025`) | T2 + T1 | PII/secret classes in output; abnormal output volume |
-| 6 | Agent tool-abuse | LLM06 | `AML.TA0015` + tool techniques | T1 + T2 | Anomalous `tool.call.chain` / denied-then-retry loops |
+| 6 | Agent tool-abuse | LLM06 | `AML.T0085.001` / impact signals | T1 | Anomalous `tool.call.chain` / denied-then-retry loops |
 | 7 | Model/endpoint DoS + cost-abuse | LLM10 | `AML.T0029` + `AML.T0034` | T1 | Token/cost spike or request-rate burst per principal |
 | 8 | Insecure output handling | LLM05 | *(none native)* ×ATT&CK `T1059` | T1 (+T2) | `output.rendered_unsanitized` into `sql_exec`/`shell_exec` |
 
@@ -336,16 +347,16 @@ Malicious signature — system-prompt extraction attempt (should alert):
 ## 12. System architecture
 
 Components:
-- `schema/` — JSON Schema of the audit log (§10) + docs.
+- `prompthound/llm_audit_log.schema.json` — packaged audit-log schema (§10).
 - `rules/` — Sigma rules by category; required metadata (§15).
 - `pipelines/` — pySigma pipelines mapping our schema → Splunk and → Kusto/ASIM.
 - `generator/` — synthetic telemetry generator (per-rule positive/negative specs).
 - `tests/` — pytest harness: evaluate rule logic against samples, assert outcomes.
-- `coverage/` — coverage-map generator (reads metadata, renders OWASP × ATLAS).
+- `prompthound/coverage.py` — metadata inventory generator; `coverage/build_coverage.py` is a compatibility entrypoint.
 - `scripts/` — `ci.py` (the CI gate, run locally and by GitHub Actions) + `release.py` (local CD: regenerate outputs into `out/`).
 - `demo/` — the one-command entrypoint.
 
-**Test-harness approach:** evaluate the **Sigma rule logic directly against sample events** (backend-agnostic, no running SIEM). Generated SPL/KQL is separately **snapshot-tested** (stable + non-empty). Confirm the exact matching mechanism during the vertical slice.
+**Test-harness approach:** evaluate the **Sigma rule logic directly against sample events** (backend-agnostic, no running SIEM). Generated SPL/KQL is separately **snapshot-tested** (stable + non-empty). The shared evaluators are in `prompthound/matcher.py` and `prompthound/correlate.py`. This is offline evidence only; see `deployment.md`.
 
 ---
 
@@ -355,9 +366,9 @@ Components:
 - **`pysigma`** (pin ≥1.0.0).
 - **`pysigma-backend-splunk`** — target `splunk`.
 - **`pysigma-backend-kusto`** — target `kusto`, `sentinelasim`/`azure_monitor` pipelines.
-- **`sigma-cli`** — optional, local conversion + plugin management.
+- **`sigma-cli`** — optional third-party CLI extra; excluded from the core runtime lock.
 - **`pytest`**, **`jinja2`**, **`pyyaml`**.
-- **(eval) `pydantic`** — optional schema validation; decide in Phase 0; keep lean.
+- **Schema validation** — a documented JSON Schema subset with required event-time, version and finite-number checks.
 - **CI gate** (`python scripts/ci.py`) — one ordered runner, executed locally on demand and by GitHub Actions on every PR and push to main.
 
 > Pin everything in a lockfile. A backend or pySigma bump = a reviewed change with full regeneration.
@@ -384,8 +395,10 @@ prompthound/
 │   ├── CHECKLIST.md
 │   ├── schema.md
 │   └── authoring.md
-├── schema/
-│   └── llm_audit_log.schema.json
+├── prompthound/
+│   ├── llm_audit_log.schema.json
+│   ├── normalize.py
+│   └── coverage.py
 ├── rules/
 │   ├── prompt_injection/
 │   ├── system_prompt_extraction/

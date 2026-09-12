@@ -12,8 +12,6 @@
 #
 # Tier 1 (PRD §10.2/§10.5): keys only on `event.action` + the conversation id;
 # no tool arguments or results (the T2 fields), no prompt/response content
-# (PRD §8 P4). See docs/authoring.md for the KQL aggregation workaround (the
-# Kusto backend does not emit Sigma correlations).
 #
 # P1 (PRD §8): keys on tool-call *volume* per conversation — a log signature of
 # an amplification loop — never on a working exploit.
@@ -46,16 +44,12 @@ description: >
   runaway agent or tool-calling chain that fans out and amplifies downstream
   resource and cost consumption (each tool call is an API hit and frequently
   another model turn). Bridges OWASP LLM06:2025 (Excessive Agency) and
-  LLM10:2025 (Unbounded Consumption) and maps to MITRE ATLAS AML.TA0015
-  (Command and Control) with AML.T0034 (Cost Harvesting) / AML.T0029 (Denial of
-  ML Service). Aggregation is per-conversation over a sliding 2-minute window;
-  the alert is the tool-call count crossing a threshold. See docs/authoring.md
-  for the KQL aggregation workaround (the Kusto backend does not emit Sigma
-  correlations).
+  LLM10:2025 (Unbounded Consumption) and maps to MITRE ATLAS AML.T0034 (Cost Harvesting) / AML.T0029 (Denial of
+  ML Service). Aggregation is per-conversation over a fixed UTC 2-minute window;
+  the alert is the tool-call count crossing a threshold. See docs/deployment.md for fixed UTC windows and tenant-scoped grouping.
 references:
   - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
   - https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
-  - https://atlas.mitre.org/tactics/AML.TA0015
   - https://nvd.nist.gov/vuln/detail/CVE-2025-54135
   - https://nvd.nist.gov/vuln/detail/CVE-2025-54136
 author: PromptHound contributors
@@ -67,7 +61,6 @@ tags:
   # runaway tool-call chain fans out and amplifies downstream resource and cost
   # consumption — T4 Resource Overload.
   - owasp-agentic.t04
-  - attack.atlas.aml.ta0015
   - attack.atlas.aml.t0034
   - attack.atlas.aml.t0029
   - prompthound.tier.t1
@@ -76,6 +69,7 @@ correlation:
   rules:
     - agent_tool_invocation
   group-by:
+    - user.tenant.id
     - gen_ai.conversation.id
   timespan: 2m
   condition:

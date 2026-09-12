@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.0 — 2026-09-12
+
+- Emit executable Sentinel correlations; isolate tenants and align the offline
+  evaluator with fixed UTC query buckets. Existing deployments must supply
+  `user.tenant.id` and account for boundary misses.
+- Correct KQL array equality, wildcard matching and cross-format state reuse.
+- Require exact string-array membership and scalar correlation grouping; reject
+  unsupported custom rule shapes. Tool-chain lists now match complete names.
+- Add atomic telemetry normalization; package the schema and validate event
+  times, schema versions, identities and finite metrics. Reject duplicate JSON
+  keys before they can discard detector data.
+- Make coverage checks read-only and isolate demo tests from tracked artifacts.
+- Harden release input selection, version validation, provenance and payload
+  hashing; redact credential findings and scan unignored new files.
+- Clarify experimental status, instrumentation requirements, signal limits and
+  live SIEM qualification. Correct rule titles and metadata overclaims.
+
+
 All notable changes to PromptHound are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).

@@ -7,8 +7,6 @@
 #
 # Tier 1 (PRD §10.1/§10.2): keys only on always-on operational metadata
 # (event.action) + identity (user.id). No prompt/response content required
-# (PRD §8 P4). See docs/authoring.md for the KQL aggregation workaround (the
-# Kusto backend does not emit Sigma correlations).
 #
 # Sample spec: generator/samples/request_rate_burst_per_principal.{positive,negative}.json
 ---
@@ -36,10 +34,9 @@ description: >
   Detects a single principal (user.id) issuing an abnormally high number of LLM
   completion requests within a short window — the log signature of model/endpoint
   denial-of-service and automated cost-abuse driven by request *frequency* rather
-  than per-request token size. Aggregation is per-principal over a sliding
+  than per-request token size. Aggregation is per-principal over a fixed UTC
   1-minute window; the alert is the request count crossing a threshold, a Tier-1
-  proxy for a runaway client or abusive script. See docs/authoring.md for the KQL
-  aggregation workaround (the Kusto backend does not emit Sigma correlations).
+  proxy for a runaway client or abusive script. See docs/deployment.md for fixed UTC windows and tenant-scoped grouping.
 references:
   - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
   - https://atlas.mitre.org/techniques/AML.T0029
@@ -56,6 +53,7 @@ correlation:
   rules:
     - rate_any_completion
   group-by:
+    - user.tenant.id
     - user.id
   timespan: 1m
   condition:

@@ -6,8 +6,6 @@
 #
 # Tier 1 (PRD §10.2): keys only on the always-on finish-reason metadata
 # (gen_ai.response.finish_reasons) + conversation id. No prompt/response content
-# required (PRD §8 P4). See docs/authoring.md for the KQL aggregation workaround
-# (the Kusto backend does not emit Sigma correlations).
 #
 # Sample spec: generator/samples/repeated_length_finish_loops.{positive,negative}.json
 ---
@@ -38,10 +36,9 @@ description: >
   `length`-truncated completions within a short window — the log signature of an
   agent or auto-continue loop that keeps maxing out the output budget and being
   re-prompted, burning tokens without converging (OWASP LLM10:2025 Unbounded
-  Consumption). Aggregation is per-conversation over a sliding 5-minute window;
+  Consumption). Aggregation is per-conversation over a fixed UTC 5-minute window;
   the alert is the count of truncated completions crossing a threshold, a Tier-1
-  proxy for a runaway loop. See docs/authoring.md for the KQL aggregation
-  workaround (the Kusto backend does not emit Sigma correlations).
+  proxy for a runaway loop. See docs/deployment.md for fixed UTC windows and tenant-scoped grouping.
 references:
   - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
   - https://atlas.mitre.org/techniques/AML.T0034
@@ -58,6 +55,7 @@ correlation:
   rules:
     - length_truncated_completion
   group-by:
+    - user.tenant.id
     - gen_ai.conversation.id
   timespan: 5m
   condition:

@@ -11,7 +11,7 @@ The 10-second "wow", entirely offline. In one command it:
      correlations — and prints a hits summary table (rule · OWASP · ATLAS · tier
      · #hits).
   3. **Builds** the OWASP × ATLAS coverage map from rule metadata
-     (:mod:`coverage.build_coverage`) and prints where to open it.
+     (:mod:`prompthound.coverage`) and prints where to open it.
 
 No live LLM is ever contacted (principles P1–P2, PRD §8): the generator only
 writes files, and rule evaluation is pure Python over plain dicts. Everything is
@@ -75,7 +75,7 @@ def evaluate_rule(path: Path, events: list[dict]) -> tuple[int, bool]:
 
 def _meta_strings(path: Path) -> tuple[str, str, str]:
     """``(owasp, atlas, tier)`` display strings from a rule's metadata tags."""
-    from coverage.build_coverage import load_rule_meta
+    from prompthound.coverage import load_rule_meta
 
     errors: list[str] = []
     meta = load_rule_meta(path, errors)
@@ -88,7 +88,7 @@ def _meta_strings(path: Path) -> tuple[str, str, str]:
 
 
 def evaluate_all(events: list[dict]) -> list[RuleHits]:
-    from coverage.build_coverage import RULES_DIR
+    from prompthound.coverage import RULES_DIR
 
     rule_files = sorted(RULES_DIR.glob("**/*.yml")) + sorted(RULES_DIR.glob("**/*.yaml"))
     results: list[RuleHits] = []
@@ -144,8 +144,8 @@ def banner(text: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    from coverage.build_coverage import OUT_DIR as COVERAGE_OUT_DIR
-    from coverage.build_coverage import generate_artifacts, write_artifacts
+    from prompthound.coverage import OUT_DIR as COVERAGE_OUT_DIR
+    from prompthound.coverage import generate_artifacts, write_artifacts
     from prompthound.generator import (
         DEFAULT_BENIGN,
         build_samples,
@@ -214,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     html = COVERAGE_OUT_DIR / "coverage.html"
     print()
     print("  Open the visual coverage map in a browser:")
-    print(f"    {html.as_uri()}")
+    print(f"    {html.relative_to(REPO_ROOT)}")
     cov_rel = COVERAGE_OUT_DIR.relative_to(REPO_ROOT)
     print(f"  Markdown / ATLAS Navigator layer alongside it under {cov_rel}/")
 

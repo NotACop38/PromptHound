@@ -2,7 +2,7 @@
 
 Per-rule **positive** (should-alert) and **negative** (should-not-alert) sample
 events for the PromptHound rule pack. Each conforms to the audit-log schema
-(`schema/llm_audit_log.schema.json`, PRD §10) and is exercised by the offline
+(`prompthound/llm_audit_log.schema.json`, PRD §10) and is exercised by the offline
 test harness (`prompthound/matcher.py`, PRD §12): the positive must fire the
 rule, the negative must stay silent.
 

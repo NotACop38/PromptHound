@@ -1,8 +1,8 @@
 # Audit-log schema — *LLM Gateway / Agent Audit Log* (v0.1 draft)
 
 > **Source of truth:** [`PRD.md` §10](./PRD.md#10-the-audit-log-schema-v01-draft).
-> The machine-readable JSON Schema lives at [`schema/llm_audit_log.schema.json`](../schema/llm_audit_log.schema.json).
-> This page is a human-readable companion; it will be expanded in Phase 0/1. Do not let it drift from the PRD.
+> The machine-readable JSON Schema lives at [`prompthound/llm_audit_log.schema.json`](../prompthound/llm_audit_log.schema.json).
+> This page describes the event fields. See [deployment.md](deployment.md) for ingestion types and required correlation identities.
 
 One JSON object is emitted per LLM operation. Field names deliberately track the
 [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/);
@@ -144,6 +144,7 @@ column repeats it, to make the "names track OTel" intent explicit.
   "gen_ai.request.model": "gpt-4o",
   "app.name": "support-copilot",
   "app.env": "prod",
+  "user.tenant.id": "tenant-demo",
   "user.id": "u-8842",
   "gen_ai.usage.input_tokens": 312,
   "gen_ai.usage.output_tokens": 188,
@@ -169,6 +170,7 @@ column repeats it, to make the "names track OTel" intent explicit.
   "gen_ai.request.model": "gpt-4o",
   "app.name": "support-copilot",
   "app.env": "prod",
+  "user.tenant.id": "tenant-demo",
   "user.id": "u-3310",
   "gen_ai.usage.input_tokens": 41,
   "gen_ai.usage.output_tokens": 0,

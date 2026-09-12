@@ -43,7 +43,15 @@ def _correlation_hits(events: list[dict]) -> list[tuple]:
 
 def test_exfil_fires_on_volume_burst() -> None:
     hits = _correlation_hits(_samples("positive"))
-    assert hits == [(("u-exfil-9001",), 6)]
+    assert hits == [
+        (
+            (
+                "tenant-demo",
+                "u-exfil-9001",
+            ),
+            6,
+        )
+    ]
 
 
 def test_exfil_silent_under_threshold() -> None:
@@ -85,13 +93,13 @@ def test_exfil_metadata() -> None:
     assert "owasp-llm.llm02" in tags
     assert "attack.atlas.aml.t0024" in tags
     assert "attack.atlas.aml.t0025" in tags  # cross-ref (PRD §11 #5)
-    assert {"prompthound.tier.t1", "prompthound.tier.t2"} <= tags
+    assert "prompthound.tier.t1" in tags
     assert correlation.references and correlation.falsepositives
 
 
 def test_exfil_is_per_principal_volume() -> None:
     _base, correlation = _base_and_correlation()
-    assert correlation.group_by == ["user.id"]
+    assert correlation.group_by == ["user.tenant.id", "user.id"]
     assert correlation.condition.count == 5
     assert correlation.timespan.seconds == 600
 
@@ -101,8 +109,8 @@ def test_exfil_converts() -> None:
     assert result.is_correlation
     spl = "\n".join(result.spl)
     assert "bin _time span=10m" in spl
-    assert "by _time user_id" in spl
+    assert "by _time user_tenant_id user_id" in spl
     assert "event_count >= 5" in spl
     kql = "\n".join(result.kql)
     assert kql.strip() and "PromptHoundAuditLog_CL" in kql
-    assert "// | summarize" in kql  # documented Kusto correlation workaround
+    assert "\n| summarize" in kql  # executable KQL correlation

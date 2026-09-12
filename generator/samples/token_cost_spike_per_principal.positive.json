@@ -1,5 +1,6 @@
 [
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:00:00Z",
     "event.id": "pos-00",
@@ -20,6 +21,7 @@
     "cost.usd": 0.18
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:00:20Z",
     "event.id": "pos-01",
@@ -40,6 +42,7 @@
     "cost.usd": 0.183
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:00:40Z",
     "event.id": "pos-02",
@@ -60,6 +63,7 @@
     "cost.usd": 0.186
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:01:00Z",
     "event.id": "pos-03",
@@ -80,6 +84,7 @@
     "cost.usd": 0.189
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:01:20Z",
     "event.id": "pos-04",
@@ -100,6 +105,7 @@
     "cost.usd": 0.192
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:01:40Z",
     "event.id": "pos-05",
@@ -120,6 +126,7 @@
     "cost.usd": 0.195
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:02:00Z",
     "event.id": "pos-06",
@@ -140,6 +147,7 @@
     "cost.usd": 0.198
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:02:20Z",
     "event.id": "pos-07",
@@ -160,6 +168,7 @@
     "cost.usd": 0.201
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:02:40Z",
     "event.id": "pos-08",
@@ -180,6 +189,7 @@
     "cost.usd": 0.204
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:03:00Z",
     "event.id": "pos-09",
@@ -200,6 +210,7 @@
     "cost.usd": 0.207
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:03:20Z",
     "event.id": "pos-10",
@@ -220,6 +231,7 @@
     "cost.usd": 0.21
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T15:03:40Z",
     "event.id": "pos-11",

@@ -1,41 +1,17 @@
-# PromptHound — Agent tool-abuse detection.
-# PRD §11 rule #6 (Agent tool-abuse: LLM06 Excessive Agency / ATLAS AML.TA0015
-# Command and Control + AML.T0085.001 AI Agent Tools). A single-event selection
-# rule keyed on the always-on tool-call *chain* metadata: one agent turn whose
-# ordered `tool.call.chain` combines a privileged/sensitive-source read with an
-# external egress sink — the read-then-exfiltrate adjacency behind agent
-# data-exfiltration via tool calls (EchoLeak / CurXecute class).
-#
-# Tier 1 (PRD §10.5): keys only on `tool.call.chain` (T1 tool-call metadata) +
-# `event.action`. No tool arguments or results (the T2 fields) are inspected, so
-# it deploys broadly and privacy-cheaply (PRD §8 P4, §15 "prefer Tier-1 where
-# equivalent"). A tighter args-aware variant would be Tier-2.
-#
-# P1 (PRD §8): the rule keys on a disallowed *combination of tool categories*
-# within one turn's chain — a log signature of an exfiltration sequence — not on
-# any working exploit. The tool names below are representative category markers;
-# operators map them to their own agent's tool inventory.
-#
+# Tool-name co-occurrence signal. Ordering and data flow are not inferred.
 # Sample spec: generator/samples/anomalous_tool_call_chain.{positive,negative}.json
-title: Anomalous agent tool-call chain (sensitive read into external egress)
+title: Sensitive-read and egress tool names in one chain
 id: 2f8b1d4c-6e3a-4c1b-9d72-7a4e5f0c8b21
 status: experimental
 description: |
-  Detects a single agent turn whose ordered tool-call chain combines a
-  privileged / sensitive-source read tool (file, database, secrets, mailbox …)
-  with an external egress / send tool (outbound HTTP, email, upload, webhook …)
-  — the read-then-exfiltrate adjacency at the heart of OWASP LLM06:2025
-  (Excessive Agency) agent abuse and MITRE ATLAS AML.TA0015 (Command and
-  Control) via AML.T0085.001 (AI Agent Tools). Each individual tool call may be
-  authorized; the disallowed *combination* in one chain is the signal.
-
-  Tier-1: keys only on the always-on `tool.call.chain` metadata and
-  `event.action`; no tool arguments or results are required. The chain must
-  contain both a sensitive-source read marker and an external-egress marker for
-  the rule to fire.
+  Flags co-occurrence of sensitive-read and egress-like tool names within one
+  chain. This does not test call order, arguments, destinations or authorization;
+  it is a triage lead for potential tool misuse, not evidence of exfiltration.
+  Matches complete tool names, case-insensitively. Adapt the names to the
+  application's tool inventory (including namespaces and suffixes) and baseline
+  legitimate read-and-notify workflows. Only Tier 1 metadata is required.
 references:
   - https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
-  - https://atlas.mitre.org/tactics/AML.TA0015
   - https://atlas.mitre.org/techniques/AML.T0085
   - https://nvd.nist.gov/vuln/detail/CVE-2025-32711
 author: PromptHound contributors
@@ -46,9 +22,6 @@ tags:
   # abusing integrated tools to read a sensitive source then egress it — T2 Tool
   # Misuse.
   - owasp-agentic.t02
-  # ATLAS v5.1.0 (Nov 2025) added tactic AML.TA0015 (Command and Control); the
-  # tool-invocation technique is AML.T0085.001 (AI Agent Tools).
-  - attack.atlas.aml.ta0015
   - attack.atlas.aml.t0085.001
   - prompthound.tier.t1
 logsource:
@@ -61,7 +34,7 @@ detection:
       - invoke_agent
   # A privileged / sensitive-source read somewhere in the turn's chain.
   sensitive_source:
-    tool.call.chain|contains:
+    tool.call.chain:
       - 'read_file'
       - 'fs.read'
       - 'db.query'
@@ -74,7 +47,7 @@ detection:
       - 'get_credentials'
   # An external egress / send tool somewhere in the same chain.
   external_sink:
-    tool.call.chain|contains:
+    tool.call.chain:
       - 'send_email'
       - 'http.post'
       - 'http.request'

@@ -1,37 +1,16 @@
-# PromptHound — System-prompt / instruction extraction, SUCCESS variant.
-# PRD §11 rule #3 (LLM07 System Prompt Leakage). The sibling rule
-# (extract_system_prompt_markers.yml) fires on the extraction *attempt* in the
-# INPUT; this one fires on the *success* — when the model's OUTPUT actually
-# echoes the hidden system instructions back to the user. One rule = one
-# behavior: a confirmed leak in the response.
-#
-# Tiering (PRD §10.8 / D4 bridge): the privacy-preserving derived boolean
-# content.output.contains_system_prompt lets this run as a Tier-1 detection
-# without persisting raw text; the optional Tier-2 selection on
-# gen_ai.output.messages corroborates with recognizable system-prompt-echo
-# signatures. The two are OR-ed so the rule degrades gracefully to Tier-1 where
-# output content is not stored. P1: the echo phrases are generalizable log
-# signatures of a recited system prompt, not a payload set.
-#
+# Possible exposure indicators; this is not confirmation of extraction success.
+# The derived and content branches are alternatives with different prerequisites.
 # Sample spec: generator/samples/system_prompt_leaked_in_output.{positive,negative}.json
----
-title: System Prompt Leaked in LLM Output (extraction success)
+title: Possible system-prompt exposure marker in LLM output
 id: 05450153-9a94-4bbb-bae5-c9ba47c92f4f
 status: experimental
 description: |
-  Detects a successful system-prompt / instruction extraction: the model's
-  response echoes its hidden system instructions back to the user. Fires when
-  the gateway's derived marker content.output.contains_system_prompt is true
-  (Tier-1 bridge, PRD §10.8) OR an output message carries a recognizable
-  system-prompt-echo signature (Tier-2 content inspection).
-
-  This is the success counterpart to extract_system_prompt_markers.yml (which
-  catches the attempt in the input). Confirming the leak in the output is high
-  fidelity and supports incident response: the secret is already out.
-
-  Maps to OWASP LLM07:2025 (System Prompt Leakage) and ATLAS AML.T0056
-  (LLM Meta Prompt Extraction). P1 note: the echo phrases are generalizable
-  signatures of a model reciting its own instructions, not a curated payload.
+  Flags a gateway-reported system-prompt similarity marker or an output phrase
+  associated with discussing instructions. The derived boolean supports Tier 1;
+  the alternative phrase branch requires Tier 2 content. Neither branch proves
+  that a hidden or sensitive instruction was disclosed. Review the actual
+  output against the application's intended disclosure policy before escalation.
+  Maps to OWASP LLM07:2025 and ATLAS AML.T0056 as investigation context.
 references:
   - https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
   - https://atlas.mitre.org/techniques/AML.T0056

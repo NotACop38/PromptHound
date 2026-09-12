@@ -1,5 +1,6 @@
 [
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T17:00:00Z",
     "event.id": "5b000001-0001-4a00-8000-0000000000e1",
@@ -24,6 +25,7 @@
     ]
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T17:01:20Z",
     "event.id": "5b000002-0002-4a00-8000-0000000000e2",
@@ -48,6 +50,7 @@
     ]
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T17:02:55Z",
     "event.id": "5b000003-0003-4a00-8000-0000000000e3",
@@ -72,6 +75,7 @@
     ]
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T17:04:10Z",
     "event.id": "5b000004-0004-4a00-8000-0000000000e4",

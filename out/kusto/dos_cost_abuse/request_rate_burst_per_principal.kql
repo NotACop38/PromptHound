@@ -1,6 +1,6 @@
 PromptHoundAuditLog_CL
 | where event_action in~ ("chat", "text_completion")
-// PromptHound: the Kusto backend cannot emit Sigma correlations. To complete
-// the per-principal windowed aggregation, append the following to the query:
-// | summarize event_count = count() by user_id, bin(timestamp, 1m)
-// | where event_count >= 20
+| where isnotempty(user_tenant_id) and isnotempty(user_id)
+// Fixed UTC buckets; bursts crossing a bucket boundary can be missed.
+| summarize event_count = count() by user_tenant_id, user_id, bin(timestamp, 60s)
+| where event_count >= 20

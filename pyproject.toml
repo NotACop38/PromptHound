@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "prompthound"
-version = "0.1.0"
+version = "0.2.0"
 description = "Open-source, defensive SIEM detection library for attacks against LLM apps and AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -64,7 +64,7 @@ Source = "https://github.com/notacop38/prompthound"
 packages = ["prompthound", "pipelines"]
 
 [tool.setuptools.package-data]
-prompthound = ["py.typed"]
+prompthound = ["py.typed", "*.schema.json"]
 
 [tool.ruff]
 line-length = 100

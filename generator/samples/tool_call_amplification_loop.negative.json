@@ -1,5 +1,6 @@
 [
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:40:00Z",
     "event.id": "6a000200-0000-4a00-8000-0000000000200",
@@ -20,6 +21,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:40:12Z",
     "event.id": "6a000201-0000-4a00-8000-0000000000201",
@@ -40,6 +42,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:40:24Z",
     "event.id": "6a000202-0000-4a00-8000-0000000000202",
@@ -60,6 +63,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:40:36Z",
     "event.id": "6a000203-0000-4a00-8000-0000000000203",
@@ -80,6 +84,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:40:48Z",
     "event.id": "6a000204-0000-4a00-8000-0000000000204",

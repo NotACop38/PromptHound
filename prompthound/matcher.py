@@ -113,7 +113,7 @@ def _match_value(value: object, candidate: object) -> bool:
         # numeric field might carry never satisfies a boolean comparison.
         return isinstance(candidate, bool) and candidate is value.boolean
     if isinstance(value, SigmaString):
-        return _match_string(value, _as_text(candidate))
+        return isinstance(candidate, str) and _match_string(value, candidate)
     if isinstance(value, SigmaNumber):
         return _as_number(candidate) == value.number
     if isinstance(value, SigmaCompareExpression):
@@ -125,7 +125,7 @@ def _match_value(value: object, candidate: object) -> bool:
 
 
 def _match_string(value: SigmaString, text: str) -> bool:
-    return re.search(_sigma_string_to_regex(value), text, re.IGNORECASE | re.DOTALL) is not None
+    return re.fullmatch(_sigma_string_to_regex(value), text, re.IGNORECASE | re.DOTALL) is not None
 
 
 def _sigma_string_to_regex(value: SigmaString) -> str:
@@ -139,9 +139,8 @@ def _sigma_string_to_regex(value: SigmaString) -> str:
             parts.append(re.escape(part))
         else:
             raise NotImplementedError(f"unsupported SigmaString element: {part!r}")
-    # A wildcard-free pattern is an exact match; wildcards make it a search.
-    if not any(p in (".*", ".") for p in parts):
-        return "^" + "".join(parts) + "$"
+    # Sigma adds the appropriate leading/trailing wildcards for contains,
+    # startswith and endswith. Every pattern still matches the whole value.
     return "".join(parts)
 
 
@@ -172,14 +171,6 @@ def _expand(raw: object) -> list[object]:
 
 def _is_scalar(value: object) -> bool:
     return isinstance(value, (str, int, float, bool)) or value is None
-
-
-def _as_text(value: object) -> str:
-    if isinstance(value, str):
-        return value
-    if _is_scalar(value):
-        return json.dumps(value)
-    return json.dumps(value)
 
 
 def _as_number(value: object) -> float | int | None:

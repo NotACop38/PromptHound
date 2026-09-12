@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from coverage.build_coverage import (
+from prompthound.coverage import (
     AGENT_RULE_CATEGORIES,
     OWASP_AGENTIC,
     OWASP_LLM,
@@ -147,7 +147,7 @@ def test_unknown_tag_fails_the_build(tmp_path, monkeypatch) -> None:
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr("coverage.build_coverage.RULES_DIR", tmp_path)
+    monkeypatch.setattr("prompthound.coverage.RULES_DIR", tmp_path)
     errors: list[str] = []
     load_rules(errors)
     assert any("unknown atlas_technique" in e for e in errors), errors
@@ -162,7 +162,7 @@ def test_missing_required_tag_fails_the_build(tmp_path, monkeypatch) -> None:
         yaml.safe_dump({"title": "t", "tags": ["owasp-llm.llm07", "prompthound.tier.t2"]}),
         encoding="utf-8",
     )
-    monkeypatch.setattr("coverage.build_coverage.RULES_DIR", tmp_path)
+    monkeypatch.setattr("prompthound.coverage.RULES_DIR", tmp_path)
     errors: list[str] = []
     meta = load_rule_meta(rule, errors)
     assert isinstance(meta, RuleMeta)
@@ -217,7 +217,7 @@ def test_unknown_agentic_tag_fails_the_build(tmp_path, monkeypatch) -> None:
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr("coverage.build_coverage.RULES_DIR", tmp_path)
+    monkeypatch.setattr("prompthound.coverage.RULES_DIR", tmp_path)
     errors: list[str] = []
     load_rules(errors)
     assert any("unknown owasp_agentic" in e for e in errors), errors
@@ -240,7 +240,7 @@ def test_agent_rule_missing_agentic_tag_fails_gate(tmp_path, monkeypatch) -> Non
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr("coverage.build_coverage.RULES_DIR", tmp_path)
+    monkeypatch.setattr("prompthound.coverage.RULES_DIR", tmp_path)
     errors: list[str] = []
     meta = load_rule_meta(rule, errors)
     assert isinstance(meta, RuleMeta)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import prompthound
@@ -11,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # PRD §14 top-level directories that the scaffold must provide.
 SCAFFOLD_DIRS = [
     "docs",
-    "schema",
+    "prompthound",
     "rules",
     "pipelines",
     "generator",
@@ -24,7 +25,10 @@ SCAFFOLD_DIRS = [
 
 
 def test_package_imports_and_versions() -> None:
-    assert prompthound.__version__ == "0.1.0"
+    assert (
+        prompthound.__version__
+        == tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"]["version"]
+    )
     assert prompthound.SCHEMA_VERSION == "0.1"
 
 

@@ -1,5 +1,9 @@
 # PromptHound — Engineering Checklist
 
+> Deployment qualification remains open. Historical phase checkmarks establish
+> offline implementation only. The current evidence contract is in
+> [deployment.md](deployment.md), with review decisions in [REVIEW.md](REVIEW.md).
+
 > Companion to `PRD.md` (source of truth). Phases 0–6 shipped in v0.1.0 (see
 > `CHANGELOG.md`); their checked items are the record. Open items live in
 > "Post-0.1.0" and "Cross-cutting" below. 🤖 = offload to Claude Code; 🧠 =
@@ -12,7 +16,7 @@ Goal: lock keystone decisions; stand up an empty-but-correct skeleton.
 Exit: schema v0.1 validating; taxonomy agreed; skeleton builds; `pytest` runs with zero rules; deps pinned.
 - [x] 🧠 Confirm D7 license, D9 name check.
 - [x] 🧠 Finalize schema v0.1 (PRD §10).
-- [x] 🤖 Write schema/llm_audit_log.schema.json.
+- [x] 🤖 Write prompthound/llm_audit_log.schema.json.
 - [x] 🤖 Write docs/schema.md (+ the two example events).
 - [x] 🧠 Confirm taxonomy (PRD §11) and the vertical-slice rule.
 - [x] 🤖 Scaffold repo layout (PRD §14).
@@ -59,7 +63,7 @@ Exit: ≥1 rule per category (PRD §11), all green, each with honest falsepositi
 - [x] 🤖 Indirect prompt injection (LLM01 / AML.T0051.001) — EchoLeak / CVE-2025-32711.
 - [x] 🤖 Jailbreaks (LLM01×LLM06 / AML.T0054).
 - [x] 🤖 Data / PII exfiltration (LLM02 / AML.T0024).
-- [x] 🤖 Agent tool-abuse (LLM06 / AML.TA0015) — CurXecute / CVE-2025-54135/6.
+- [x] 🤖 Agent tool-abuse (LLM06 / tool-use and resource signals) — CurXecute / CVE-2025-54135/6.
 - [x] 🧠 Per category: review 1–2 rules for generalizability (P1) + FP honesty.
 - [x] 🧠 D6 — OWASP Agentic Top 10 secondary tag: **yes**. Agent rules carry a
   secondary `owasp-agentic.tNN` (OWASP Agentic AI — Threats and Mitigations,
@@ -67,7 +71,7 @@ Exit: ≥1 rule per category (PRD §11), all green, each with honest falsepositi
   renders an Agentic section.
 
 ## Phase 4 — Coverage map
-Goal: auto-generated, never-stale OWASP × ATLAS coverage.
+Goal: auto-generated, generated OWASP × ATLAS coverage.
 Exit: coverage/build_coverage.py emits the map from metadata; CI rebuilds it; not hand-editable.
 - [x] 🧠 Choose output: ATLAS Navigator layer JSON + HTML/Markdown grid + embeddable SVG card (`docs/assets/coverage.svg`, generated; gated by the CI coverage stage).
 - [x] 🤖 Build the generator (Jinja2).

@@ -78,7 +78,15 @@ RATE = "request_rate_burst_per_principal"
 
 def test_request_rate_burst_fires_on_burst() -> None:
     hits = _correlation_hits(RULES_DIR / f"{RATE}.yml", _samples(RATE, "positive"))
-    assert hits == [(("u-rate-7001",), 20)]
+    assert hits == [
+        (
+            (
+                "tenant-demo",
+                "u-rate-7001",
+            ),
+            20,
+        )
+    ]
 
 
 def test_request_rate_burst_silent_on_normal_rate() -> None:
@@ -99,11 +107,11 @@ def test_request_rate_burst_converts() -> None:
     assert result.is_correlation
     spl = "\n".join(result.spl)
     assert "bin _time span=1m" in spl
-    assert "by _time user_id" in spl
+    assert "by _time user_tenant_id user_id" in spl
     assert "event_count >= 20" in spl
     kql = "\n".join(result.kql)
     assert kql.strip() and "PromptHoundAuditLog_CL" in kql
-    assert "// | summarize" in kql  # documented Kusto correlation workaround
+    assert "\n| summarize" in kql  # executable KQL correlation
 
 
 # --- repeated_length_finish_loops (correlation) -------------------------------
@@ -113,7 +121,15 @@ LOOPS = "repeated_length_finish_loops"
 
 def test_repeated_length_loops_fires_on_loop() -> None:
     hits = _correlation_hits(RULES_DIR / f"{LOOPS}.yml", _samples(LOOPS, "positive"))
-    assert hits == [(("conv-loop-3001",), 6)]
+    assert hits == [
+        (
+            (
+                "tenant-demo",
+                "conv-loop-3001",
+            ),
+            6,
+        )
+    ]
 
 
 def test_repeated_length_loops_silent_under_threshold() -> None:
@@ -146,7 +162,7 @@ def test_repeated_length_loops_converts() -> None:
     spl = "\n".join(result.spl)
     assert 'gen_ai_response_finish_reasons="length"' in spl
     assert "bin _time span=5m" in spl
-    assert "by _time gen_ai_conversation_id" in spl
+    assert "by _time user_tenant_id gen_ai_conversation_id" in spl
     assert "event_count >= 5" in spl
 
 
