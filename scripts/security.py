@@ -17,7 +17,7 @@ The three checks:
 * **bandit** — static security analysis over the first-party Python in
   ``prompthound/`` and ``scripts/``. Lines that are security-reviewed and safe
   carry an inline ``# nosec <ID>`` justification.
-* **secrets scan** — a lean regex sweep of every git-tracked file for committed
+* **secrets scan** — a lean regex sweep of tracked and unignored new files for committed
   credentials (AWS keys, private-key blocks, provider/API tokens). Deliberate
   example values (the canonical AWS docs key, the P1-guard test fixtures) are
   exempted with an inline ``pragma: allowlist secret`` marker.
@@ -49,8 +49,8 @@ BANDIT_TARGETS: tuple[str, ...] = ("prompthound", "scripts", "pipelines", "cover
 #: Each entry is a standing, reviewed decision — revisit when a fix ships. Keep
 #: this list as short as the advisory database forces it to be.
 IGNORED_VULNS: dict[str, str] = {
-    # diskcache pickle-deserialization RCE, transitive via the OPTIONAL sigma-cli
-    # extra. No fixed release exists (the advisory is "through 5.6.3", the latest
+    # diskcache is a DIRECT dependency of the pinned pySigma runtime, even when
+    # sigma-cli is not installed. No fixed release exists (through 5.6.3).
     # version). Exploitation needs an attacker who already has write access to the
     # local on-disk cache directory — a local-trust scenario PromptHound does not
     # defend (offline, single-user, no shared/untrusted cache). See THREAT-MODEL.
@@ -76,7 +76,7 @@ KNOWN_EXAMPLES: frozenset[str] = frozenset({"AKIAIOSFODNN7EXAMPLE"})
 #: Single-line credential shapes, scanned line by line for precise excerpts.
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("aws-access-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
-    ("openai-api-key", re.compile(r"\bsk-[A-Za-z0-9]{20,}\b")),
+    ("openai-api-key", re.compile(r"\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}\b")),
     # Classic / OAuth / server / refresh tokens (ghp_, gho_, ghu_, ghs_, ghr_)
     # and the github_pat_ prefix used by fine-grained PATs.
     ("github-token", re.compile(r"\bgh[opsru]_[A-Za-z0-9]{36,}\b")),
@@ -103,10 +103,10 @@ class SecretFinding(NamedTuple):
 
 
 def _tracked_files(root: Path) -> list[Path]:
-    """Git-tracked files under ``root`` (the scan scope; ignores out/ and venvs)."""
+    """Tracked and unignored new files; venvs/build outputs follow .gitignore."""
     # Fixed argv, no shell; git is resolved from PATH (B607 accepted).
     result = subprocess.run(  # nosec B603 B607
-        ["git", "ls-files", "-z"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         cwd=root,
         check=True,
         capture_output=True,
@@ -128,8 +128,8 @@ def scan_text(rel: str, text: str) -> list[SecretFinding]:
     for lineno, line in enumerate(lines, start=1):
         if ALLOWLIST_MARKER in line:
             continue
-        excerpt = line.strip()
-        excerpt = excerpt if len(excerpt) <= 120 else excerpt[:117] + "..."
+        # Never echo a discovered credential into local logs or public CI output.
+        excerpt = "[redacted credential]"
         for kind, pattern in _SECRET_PATTERNS:
             # Walk *every* match so a known-example value earlier on the line can't
             # mask a real credential later on it; exempt only the example itself.
@@ -148,7 +148,7 @@ def scan_text(rel: str, text: str) -> list[SecretFinding]:
 
 
 def scan_for_secrets(root: Path | None = None) -> list[SecretFinding]:
-    """Scan every git-tracked file under ``root`` for committed credentials ([] == clean)."""
+    """Scan tracked and unignored new files for credential patterns."""
     root = root or REPO_ROOT
     findings: list[SecretFinding] = []
     for path in _tracked_files(root):
@@ -174,7 +174,13 @@ def run_pip_audit() -> bool:
     """Audit requirements.lock; ignore only the documented, out-of-scope advisories."""
     if not _have("pip-audit"):
         return False
-    cmd = ["pip-audit", "--requirement", str(REPO_ROOT / "requirements.lock")]
+    cmd = [
+        "pip-audit",
+        "--requirement",
+        str(REPO_ROOT / "requirements.lock"),
+        "--requirement",
+        str(REPO_ROOT / "requirements-dev.lock"),
+    ]
     for cve, why in IGNORED_VULNS.items():
         cmd += ["--ignore-vuln", cve]
         print(f"  ignoring {cve}: {why}")
@@ -198,7 +204,7 @@ def run_secrets_scan() -> bool:
     """Fail on any committed credential in a tracked file (PRD §8 P4, §10.1 api_key.id)."""
     findings = scan_for_secrets(REPO_ROOT)
     if not findings:
-        print("  no committed secrets found in tracked files")
+        print("  no credential-pattern findings in tracked or unignored new files")
         return True
     for f in findings:
         print(f"  SECRET  {f.path}:{f.line}  [{f.kind}]  {f.excerpt}")
@@ -208,7 +214,7 @@ def run_secrets_scan() -> bool:
 def security_stage() -> bool:
     """Run pip-audit + bandit + secrets scan; green only if all three pass."""
     checks = (
-        ("pip-audit (requirements.lock)", run_pip_audit),
+        ("pip-audit (runtime + development locks)", run_pip_audit),
         ("bandit (first-party Python)", run_bandit),
         ("secrets scan (tracked files)", run_secrets_scan),
     )

@@ -140,7 +140,6 @@ exactly the threat(s) the behavior matches, zero-padded to mirror `llmNN`:
 tags:
   - owasp-llm.llm06            # primary taxonomy stays the OWASP LLM Top 10
   - owasp-agentic.t02          # secondary: T2 Tool Misuse (agent rules only)
-  - attack.atlas.aml.ta0015
   - prompthound.tier.t1
 ```
 
@@ -152,7 +151,7 @@ mapping is for agent behaviors).
 
 ## Offline test harness (PRD §12)
 
-Rules are proven **without a running SIEM**. The harness
+Rule fixtures are evaluated **without a running SIEM**. The harness
 (`prompthound/matcher.py`) parses each rule with pySigma — the same library that
 emits the SPL/KQL — and walks pySigma's own fully-resolved condition trees
 (every `rule.detection.parsed_condition[i].parse()`, OR-ed) against a plain
@@ -206,8 +205,8 @@ place — **`prompthound/fieldmap.py`** — and both backends import it, so a re
 changes Splunk and Sentinel together.
 
 - **Rule:** dots become underscores — `a.b.c` → `a_b_c`.
-- **Why map at all:** KQL column references cannot contain dots, so the mapping
-  is *mandatory* for Kusto; we apply the **same** map to Splunk so a schema field
+- **Why map at all:** KQL dotted names require bracket quoting. We use a registered flat
+  column contract for predictable ingestion; we apply the **same** map to Splunk so a schema field
   resolves to the **identical column** in both SIEMs.
 - **Target tables/sources:** SPL assumes a flattened PromptHound audit
   index/source (no table prefix). KQL is prepended with a Sentinel custom-log
@@ -216,17 +215,18 @@ changes Splunk and Sentinel together.
 - **`logsource`:** every rule uses `product: llm_gateway`; the field mapping only
   fires for that logsource.
 
-### Correlation rules and the KQL aggregation gap
+### Correlation conversion contract
 
-Sigma **correlation** rules (per-principal counts over a window) convert unevenly
-across backends, so `convert_rule` treats them specially:
+Both formats emit executable aggregation for the supported single-base
+`event_count` subset. Every shipped correlation groups by tenant plus principal
+or conversation. Fixed UTC buckets are used by both outputs and the offline
+harness; bursts across bucket boundaries can be missed. Missing grouping keys
+are excluded. The offline summary reports the first qualifying bucket per
+group, whereas SIEM queries return every qualifying bucket.
 
-- **SPL** — the Splunk backend emits the full `event_count` correlation. Author
-  cost/token-spike rules as an `event_count` over a base rule rather than a literal
-  token sum (the Splunk backend has no `value_sum`).
-- **KQL** — the Kusto backend (1.0.x) emits **no** correlations. For a correlation
-  rule the generated `.kql` is the **base rule's** `where` clause plus the windowed
-  aggregation appended as a `// summarize …` comment the analyst un-comments.
+Unsupported correlation shapes fail conversion. Array-valued KQL fields use
+membership for equality. See [deployment.md](deployment.md) for column types,
+identity requirements, scheduling and live qualification.
 
 ### Regenerating and snapshotting `out/`
 
@@ -242,11 +242,9 @@ across backends, so `convert_rule` treats them specially:
 
 Both share `scripts/conversion.py` so the generated content is defined once.
 
-## Lessons (Phase 1b, correlation slice)
+## Boundary tests
 
-- The Splunk and Kusto backends are **not** at parity for correlations — design
-  for SPL-complete + KQL-best-effort and document the gap in the rule.
-- Keep aggregation rules as `event_count` over a base detection; it's the subset
-  both the harness and the Splunk backend handle cleanly.
-- Samples for correlation rules are **arrays** — a burst that crosses the
-  threshold (positive) and steady traffic that doesn't (negative).
+Per-rule fixtures demonstrate intended examples. Also test mixed case, a value
+just below the threshold, missing identity, cross-tenant collisions and events
+on opposite sides of a fixed-window boundary. These checks supplement snapshot
+stability; live SIEM execution is still required before deployment.

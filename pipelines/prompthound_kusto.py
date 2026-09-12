@@ -27,6 +27,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from sigma.backends.kusto import KustoBackend
+from sigma.conditions import ConditionAND, ConditionFieldEqualsValueExpression, ConditionOR
+from sigma.conversion.deferred import DeferredQueryExpression
+from sigma.conversion.state import ConversionState
 from sigma.pipelines.azuremonitor import azure_monitor_pipeline
 from sigma.pipelines.sentinelasim import sentinel_asim_pipeline
 from sigma.processing.conditions import LogsourceCondition
@@ -37,12 +40,45 @@ from sigma.processing.pipeline import (
 )
 from sigma.processing.postprocessing import QueryPostprocessingTransformation
 from sigma.processing.transformations import FieldMappingTransformation
+from sigma.types import SigmaString
 
-from prompthound.fieldmap import DEFAULT_QUERY_TABLE, FIELD_MAP
+from prompthound.fieldmap import DEFAULT_QUERY_TABLE, FIELD_MAP, STRING_ARRAY_FIELDS
 
 #: Kusto pipeline flavours we support. ``sentinelasim`` is the default; switch to
 #: ``azure_monitor`` for non-ASIM Log Analytics deployments (PRD §17).
 KustoFlavour = Literal["sentinelasim", "azure_monitor"]
+
+
+class PromptHoundKustoBackend(KustoBackend):
+    """Schema-aware fixes for the pinned backend's scalar array comparisons."""
+
+    # The upstream list optimizer changes foo*bar to contains foo AND contains
+    # bar, losing order. Let the normal wildcard conversion retain the pattern.
+    in_expressions_allow_wildcards = False
+    wildcard_match_expression = '{field} matches regex "(?is)\\\\A{regex}\\\\z"'
+
+    def decide_convert_condition_as_in_expression(
+        self, cond: ConditionOR | ConditionAND, state: ConversionState
+    ) -> bool:
+        array_columns = {FIELD_MAP[f] for f in STRING_ARRAY_FIELDS}
+        if any(getattr(arg, "field", None) in array_columns for arg in cond.args):
+            return False
+        return super().decide_convert_condition_as_in_expression(cond, state)
+
+    def convert_condition_field_eq_val_str(
+        self, cond: ConditionFieldEqualsValueExpression, state: ConversionState
+    ) -> str | DeferredQueryExpression:
+        value = cond.value
+        array_columns = {FIELD_MAP[f] for f in STRING_ARRAY_FIELDS}
+        if cond.field in array_columns and isinstance(value, SigmaString):
+            field = self.escape_and_quote_field(cond.field)
+            if not value.contains_special():
+                literal = self.convert_value_str(SigmaString(str(value).lower()), state)
+                # Arrays are ingested as dynamic. Case-fold their JSON encoding
+                # before membership testing to retain Sigma's insensitive match.
+                return f"set_has_element(parse_json(tolower(tostring({field}))), {literal})"
+        return super().convert_condition_field_eq_val_str(cond, state)
+
 
 # Ordering guarantee: ``prompthound_kusto_pipeline`` composes our pipeline as
 # ``field_pipeline + bundled`` and pySigma applies items in list order (it does
@@ -144,7 +180,7 @@ def kusto_backend(
     pipeline = prompthound_kusto_pipeline(query_table, flavour)
     # KustoBackend accepts a ProcessingPipeline at runtime (its __init__ first arg),
     # but the pinned pysigma-backend-kusto stub mistypes the keyword as a dict.
-    return KustoBackend(processing_pipeline=pipeline)  # type: ignore[arg-type]
+    return PromptHoundKustoBackend(processing_pipeline=pipeline)  # type: ignore[arg-type]
 
 
 __all__ = [

@@ -13,11 +13,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from demo import run_demo
+from prompthound import coverage
 from prompthound.schema import load_schema, validate_event
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RULES_DIR = REPO_ROOT / "rules"
+
+
+@pytest.fixture(autouse=True)
+def isolate_demo_outputs(tmp_path, monkeypatch):
+    # A demo test must not regenerate committed snapshots before CI checks them.
+    monkeypatch.setattr(run_demo, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(run_demo, "TELEMETRY_PATH", tmp_path / "telemetry.jsonl")
+    monkeypatch.setattr(coverage, "OUT_DIR", tmp_path / "coverage")
 
 
 def _rule_count() -> int:

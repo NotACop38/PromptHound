@@ -46,7 +46,15 @@ def _correlation_hits(events: list[dict]) -> list[tuple]:
 
 def test_jailbreak_fires_on_repeated_filtered_attempts() -> None:
     hits = _correlation_hits(_samples("positive"))
-    assert hits == [(("conv-jb-5001",), 4)]
+    assert hits == [
+        (
+            (
+                "tenant-demo",
+                "conv-jb-5001",
+            ),
+            4,
+        )
+    ]
 
 
 def test_jailbreak_silent_under_threshold() -> None:
@@ -98,11 +106,11 @@ def test_jailbreak_converts() -> None:
     spl = "\n".join(result.spl)
     assert 'gen_ai_response_finish_reasons="content_filter"' in spl
     assert "bin _time span=10m" in spl
-    assert "by _time gen_ai_conversation_id" in spl
+    assert "by _time user_tenant_id gen_ai_conversation_id" in spl
     assert "event_count >= 3" in spl
     kql = "\n".join(result.kql)
     assert kql.strip() and "PromptHoundAuditLog_CL" in kql
-    assert "// | summarize" in kql  # documented Kusto correlation workaround
+    assert "\n| summarize" in kql  # executable KQL correlation
 
 
 def test_jailbreak_samples_have_positive_and_negative() -> None:

@@ -4,7 +4,7 @@ Two jobs, in order:
 
 1. **Regenerate every generated artifact into ``out/``** — each rule's SPL, KQL
    and ``savedsearches.conf`` (via ``scripts.conversion``) and the OWASP × ATLAS
-   coverage map + MITRE ATLAS Navigator layer (via ``coverage.build_coverage``),
+   coverage map + MITRE ATLAS Navigator layer (via ``prompthound.coverage``),
    plus the README coverage SVG. This is the *writer* the read-only ``convert``
    and ``coverage-build`` stages of ``scripts/ci.py`` check for drift, so run it
    after changing a rule, pipeline, or backend pin and commit the ``out/`` diff.
@@ -31,6 +31,7 @@ import gzip
 import hashlib
 import io
 import json
+import re
 
 # Used only for a best-effort, fixed-argv `git rev-parse` (no shell) for provenance.
 import subprocess  # nosec B404
@@ -50,19 +51,22 @@ LICENSE_FILES = ("LICENSE", "LICENSE-RULES", "NOTICE")
 
 
 def _resolve_version(override: str | None) -> str:
-    if override:
-        return override
     from prompthound import __version__
 
-    return __version__
+    version = override if override is not None else __version__
+    if len(version) > 128 or not re.fullmatch(
+        r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?", version
+    ):
+        raise ValueError("version must be a safe semantic version such as 0.2.0 or 0.2.0-rc.1")
+    return version
 
 
 def _git_commit() -> str:
-    """Best-effort short commit for provenance; ``"unknown"`` outside a checkout."""
+    """Best-effort full commit for provenance; ``"unknown"`` outside a checkout."""
     try:
         # Fixed argv, no shell; failure is non-fatal (e.g. tarball of a non-repo).
         result = subprocess.run(  # nosec B603 B607
-            ["git", "rev-parse", "--short", "HEAD"],
+            ["git", "rev-parse", "HEAD"],
             cwd=REPO_ROOT,
             check=True,
             capture_output=True,
@@ -90,8 +94,8 @@ def _git_status_entries() -> list[str]:
             capture_output=True,
             text=True,
         )
-    except (subprocess.SubprocessError, OSError):
-        return []
+    except (subprocess.SubprocessError, OSError) as exc:
+        raise ValueError("cannot establish git release provenance") from exc
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
@@ -113,9 +117,9 @@ def regenerate_out() -> tuple[list[Path], int]:
     error nothing partial is trusted: the error count is non-zero and the caller
     aborts before stamping a release.
     """
-    from coverage.build_coverage import generate_artifacts as coverage_artifacts
-    from coverage.build_coverage import generate_presentation_assets
-    from coverage.build_coverage import write_artifacts as write_coverage
+    from prompthound.coverage import generate_artifacts as coverage_artifacts
+    from prompthound.coverage import generate_presentation_assets
+    from prompthound.coverage import write_artifacts as write_coverage
     from scripts.conversion import OUT_DIR, build_artifacts, committed_outputs
 
     written: list[Path] = []
@@ -128,8 +132,16 @@ def regenerate_out() -> tuple[list[Path], int]:
         print("\nrelease aborted: fix the conversion errors above.")
         return written, len(errors)
 
+    cov_artifacts, cov_errors = coverage_artifacts()
+    assets, asset_errors = generate_presentation_assets()
+    cov_errors += asset_errors
+    if cov_errors:
+        for error in cov_errors:
+            print(f"  ERROR  {error}")
+        return written, len(cov_errors)
+
     for path in sorted(committed_outputs() - set(artifacts)):
-        path.unlink()  # prune a renamed/removed rule's stale output
+        path.unlink()
         print(f"  removed  out/{path.relative_to(OUT_DIR)}")
     for path, content in sorted(artifacts.items()):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -137,15 +149,6 @@ def regenerate_out() -> tuple[list[Path], int]:
         written.append(path)
         print(f"  wrote    out/{path.relative_to(OUT_DIR)}")
 
-    # 2. Coverage map (md/html + ATLAS Navigator layer) + the README SVG.
-    cov_artifacts, cov_errors = coverage_artifacts()
-    assets, asset_errors = generate_presentation_assets()
-    cov_errors = cov_errors or asset_errors
-    if cov_errors:
-        for error in cov_errors:
-            print(f"  ERROR  {error}")
-        print("\nrelease aborted: fix the coverage tag errors above.")
-        return written, len(cov_errors)
     write_coverage(cov_artifacts)
     write_coverage(assets)
     for path in sorted(cov_artifacts):
@@ -160,22 +163,30 @@ def regenerate_out() -> tuple[list[Path], int]:
 
 def _collect_bundle_files() -> list[Path]:
     """Every generated file (sorted) that belongs in the released bundle."""
-    from scripts.conversion import OUT_DIR
+    from prompthound.coverage import generate_artifacts
+    from scripts.conversion import OUT_DIR, build_artifacts
 
-    files: list[Path] = []
-    for sub in BUNDLE_SUBTREES:
-        directory = OUT_DIR / sub
-        if directory.is_dir():
-            files.extend(p for p in directory.rglob("*") if p.is_file())
-    return sorted(files)
+    queries, errors = build_artifacts()
+    coverage, coverage_errors = generate_artifacts()
+    if errors or coverage_errors:
+        raise ValueError("cannot bundle invalid generated artifacts")
+    expected = {**queries, **coverage}
+    found = {p for sub in BUNDLE_SUBTREES for p in (OUT_DIR / sub).rglob("*") if p.is_file()}
+    if found != set(expected):
+        raise ValueError("bundle subtrees contain missing or unexpected files")
+    for path, content in expected.items():
+        if path.is_symlink() or path.read_text(encoding="utf-8") != content:
+            raise ValueError("bundle contains a symlink or stale generated artifact")
+    return sorted(expected)
 
 
 def _bundle_readme(version: str, commit: str) -> str:
     return (
         f"PromptHound — detection content bundle v{version} (commit {commit})\n"
         "=" * 64 + "\n\n"
-        "Generated, SIEM-ready detection content auto-converted from the\n"
+        "Experimental SIEM query templates auto-converted from the\n"
         "PromptHound Sigma rule pack (https://github.com/notacop38/prompthound).\n\n"
+        "Read docs/deployment.md before ingestion or enabling alerts.\n\n"
         "Contents:\n"
         "  splunk/    Splunk SPL (.spl) + savedsearches.conf per rule\n"
         "  kusto/     Microsoft Sentinel KQL (.kql) per rule\n"
@@ -198,48 +209,43 @@ def build_bundle(version: str) -> Path | None:
     """
     from scripts.conversion import OUT_DIR
 
+    version = _resolve_version(version)
     commit = _git_commit()
+    try:
+        dirty: bool | None = bool(_git_status_entries())
+    except ValueError:
+        dirty = None
     files = _collect_bundle_files()
     if not files:
-        print(
-            "  ERROR  no generated content found to bundle (run without --no-bundle "
-            "after a successful regeneration)."
-        )
         return None
 
-    # Manifest: hash each generated payload file (relative to out/).
-    manifest_files = []
+    payload: dict[str, bytes] = {
+        "VERSION": f"{version}\n".encode(),
+        "README.txt": _bundle_readme(version, commit).encode("utf-8"),
+    }
+    for name in (*LICENSE_FILES, "docs/deployment.md", "prompthound/llm_audit_log.schema.json"):
+        src = REPO_ROOT / name
+        if not src.is_file() or src.is_symlink():
+            raise ValueError(f"missing or unsafe release input: {name}")
+        payload[name] = src.read_bytes()
     for path in files:
-        data = path.read_bytes()
-        manifest_files.append(
-            {
-                "path": str(path.relative_to(OUT_DIR)),
-                "sha256": hashlib.sha256(data).hexdigest(),
-                "bytes": len(data),
-            }
-        )
+        payload[str(path.relative_to(OUT_DIR))] = path.read_bytes()
+    manifest_files = [
+        {"path": name, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
+        for name, data in sorted(payload.items())
+    ]
     manifest = {
         "name": "prompthound-detections",
         "version": version,
         "source_commit": commit,
+        "source_dirty": dirty,
         "file_count": len(manifest_files),
         "files": manifest_files,
     }
     manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
-
-    # Assemble the in-memory member set: arcname -> bytes, under a versioned root.
+    payload["MANIFEST.json"] = manifest_bytes
     root = f"prompthound-detections-{version}"
-    members: dict[str, bytes] = {
-        f"{root}/VERSION": f"{version}\n".encode(),
-        f"{root}/MANIFEST.json": manifest_bytes,
-        f"{root}/README.txt": _bundle_readme(version, commit).encode("utf-8"),
-    }
-    for name in LICENSE_FILES:
-        src = REPO_ROOT / name
-        if src.is_file():
-            members[f"{root}/{name}"] = src.read_bytes()
-    for path in files:
-        members[f"{root}/{path.relative_to(OUT_DIR)}"] = path.read_bytes()
+    members = {f"{root}/{name}": data for name, data in payload.items()}
 
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     bundle_path = DIST_DIR / f"{root}.tar.gz"
@@ -287,6 +293,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    try:
+        version = _resolve_version(args.version)
+    except ValueError as exc:
+        parser.error(str(exc))
     written, errors = regenerate_out()
     if errors:
         return 1
@@ -295,14 +305,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_bundle:
         return 0
 
-    dirty_entries = _git_status_entries()
+    try:
+        dirty_entries = _git_status_entries()
+    except ValueError as exc:
+        if not args.allow_dirty:
+            print(f"  ERROR  {exc}")
+            return 1
+        dirty_entries = []
     if dirty_entries and not args.allow_dirty:
         _print_dirty_release_blocker(dirty_entries)
         return 1
 
-    version = _resolve_version(args.version)
     print(f"\nbuilding release bundle for v{version} ...")
-    if build_bundle(version) is None:
+    try:
+        if build_bundle(version) is None:
+            return 1
+    except ValueError as exc:
+        print(f"  ERROR  {exc}")
         return 1
     return 0
 

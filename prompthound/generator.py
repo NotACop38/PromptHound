@@ -6,7 +6,7 @@ rule's samples are declared once as a :class:`SampleSpec` (a small data overlay
 on a shared benign base event). The generator then emits a mixed dataset --
 varied benign traffic plus, for every rule, its positive (should-alert) and
 negative (should-not-alert) samples -- every event conforming to the audit-log
-schema (``schema/llm_audit_log.schema.json``, PRD §10).
+schema (``prompthound/llm_audit_log.schema.json``, PRD §10).
 
 CLI::
 
@@ -396,7 +396,7 @@ SPECS: tuple[SampleSpec, ...] = (
         stem="anomalous_tool_chain",
         category="agent_tool_abuse",
         owasp="llm06",
-        atlas=("aml.ta0015",),
+        atlas=("aml.t0085.001",),
         tier="t1",
         rules=("agent_tool_abuse/anomalous_tool_call_chain.yml",),
         description="Agent tool-abuse: sensitive-read + external-egress tools in one chain.",
@@ -444,7 +444,7 @@ SPECS: tuple[SampleSpec, ...] = (
         stem="denied_tool_retry_loop",
         category="agent_tool_abuse",
         owasp="llm06",
-        atlas=("aml.ta0015", "aml.t0085.001"),
+        atlas=("aml.t0085.001",),
         tier="t1",
         rules=("agent_tool_abuse/denied_tool_retry_loop.yml",),
         description="Agent tool-abuse: denied-then-retry tool loop per conversation.",
@@ -495,7 +495,7 @@ SPECS: tuple[SampleSpec, ...] = (
         stem="tool_call_amplification_loop",
         category="agent_tool_abuse",
         owasp="llm10",
-        atlas=("aml.ta0015", "aml.t0034", "aml.t0029"),
+        atlas=("aml.t0034", "aml.t0029"),
         tier="t1",
         rules=("agent_tool_abuse/tool_call_amplification_loop.yml",),
         description="Agent tool-abuse: runaway tool-call amplification per conversation.",
@@ -728,6 +728,7 @@ def _benign_base(rng: random.Random, when: dt.datetime) -> Event:
         "app.name": rng.choice(_APPS),
         "app.env": "prod",
         "user.id": f"u-{rng.getrandbits(20):05x}",
+        "user.tenant.id": "tenant-demo",
         "gen_ai.usage.input_tokens": input_tokens,
         "gen_ai.usage.output_tokens": output_tokens,
         "gen_ai.usage.total_tokens": input_tokens + output_tokens,
@@ -823,8 +824,10 @@ def build_samples(
 
     cursor += gap  # separate the benign window from the signatures
     for spec in SPECS:
+        cursor = cursor.replace(minute=0, second=0) + dt.timedelta(hours=1)
         pos, cursor = _build_events(spec.positive, rng, cursor)
         cursor += gap
+        cursor = cursor.replace(minute=0, second=0) + dt.timedelta(hours=1)
         neg, cursor = _build_events(spec.negative, rng, cursor)
         cursor += gap
         samples.append(Sample(spec.stem, spec.category, "positive", pos, rules=spec.rules))

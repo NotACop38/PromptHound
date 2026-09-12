@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="797" viewBox="0 0 960 797" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-<rect width="960" height="797" rx="14" fill="#2e3440"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="774" viewBox="0 0 960 774" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<rect width="960" height="774" rx="14" fill="#2e3440"/>
 <text x="28" y="54" fill="#ebcb8b" font-size="21" font-weight="700" xml:space="preserve">PromptHound — coverage map</text>
-<text x="28" y="76" fill="#8a93a3" font-size="12" font-weight="normal" xml:space="preserve">auto-generated from rule metadata · 15 rules · OWASP LLM Top 10 6/10 covered · ATLAS 10 techniques/tactics · Agentic 3 mapped</text>
+<text x="28" y="76" fill="#8a93a3" font-size="12" font-weight="normal" xml:space="preserve">auto-generated from rule metadata · 15 rules · OWASP LLM Top 10 6/10 mapped · ATLAS 9 techniques/tactics · Agentic 3 mapped</text>
 <rect x="28" y="88" width="904" height="1" rx="0" fill="#434c5e"/>
 <text x="28" y="114" fill="#d8dee9" font-size="13" font-weight="700" xml:space="preserve">OWASP LLM Top 10 (2025)</text>
 <rect x="28" y="128" width="171" height="82" rx="8" fill="#3b4252"/>
@@ -104,35 +104,30 @@
 <rect x="400" y="536" width="496" height="13" rx="6" fill="#2b303b"/>
 <rect x="400" y="536" width="198" height="13" rx="6" fill="#88c0d0"/>
 <text x="606" y="546" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">2</text>
-<text x="28" y="569" fill="#88c0d0" font-size="12" font-weight="normal" font-family="SFMono-Regular,Consolas,Menlo,monospace" xml:space="preserve">AML.TA0015</text>
-<text x="132" y="569" fill="#8a93a3" font-size="11" font-weight="normal" xml:space="preserve">Command and Control  (tactic)</text>
-<rect x="400" y="559" width="496" height="13" rx="6" fill="#2b303b"/>
-<rect x="400" y="559" width="298" height="13" rx="6" fill="#5e81ac"/>
-<text x="706" y="569" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">3</text>
-<text x="28" y="592" fill="#d8dee9" font-size="13" font-weight="700" xml:space="preserve">Detection tiers</text>
-<text x="28" y="620" fill="#d8dee9" font-size="11" font-weight="normal" xml:space="preserve">T1 · operational / always-on</text>
-<rect x="400" y="610" width="496" height="13" rx="6" fill="#2b303b"/>
-<rect x="400" y="610" width="364" height="13" rx="6" fill="#a3be8c"/>
-<text x="772" y="620" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">11</text>
-<text x="28" y="645" fill="#d8dee9" font-size="11" font-weight="normal" xml:space="preserve">T2 · content inspection / opt-in</text>
-<rect x="400" y="635" width="496" height="13" rx="6" fill="#2b303b"/>
-<rect x="400" y="635" width="198" height="13" rx="6" fill="#a3be8c"/>
-<text x="606" y="645" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">6</text>
-<text x="28" y="670" fill="#d8dee9" font-size="13" font-weight="700" xml:space="preserve">OWASP Agentic AI — Threats &amp; Mitigations (secondary)</text>
-<text x="28" y="698" fill="#ebcb8b" font-size="12" font-weight="normal" font-family="SFMono-Regular,Consolas,Menlo,monospace" xml:space="preserve">T2</text>
-<text x="132" y="698" fill="#8a93a3" font-size="11" font-weight="normal" xml:space="preserve">Tool Misuse</text>
+<text x="28" y="569" fill="#d8dee9" font-size="13" font-weight="700" xml:space="preserve">Detection tiers</text>
+<text x="28" y="597" fill="#d8dee9" font-size="11" font-weight="normal" xml:space="preserve">T1 · operational / always-on</text>
+<rect x="400" y="587" width="496" height="13" rx="6" fill="#2b303b"/>
+<rect x="400" y="587" width="364" height="13" rx="6" fill="#a3be8c"/>
+<text x="772" y="597" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">11</text>
+<text x="28" y="622" fill="#d8dee9" font-size="11" font-weight="normal" xml:space="preserve">T2 · content inspection / opt-in</text>
+<rect x="400" y="612" width="496" height="13" rx="6" fill="#2b303b"/>
+<rect x="400" y="612" width="165" height="13" rx="6" fill="#a3be8c"/>
+<text x="573" y="622" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">5</text>
+<text x="28" y="647" fill="#d8dee9" font-size="13" font-weight="700" xml:space="preserve">OWASP Agentic AI — Threats &amp; Mitigations (secondary)</text>
+<text x="28" y="675" fill="#ebcb8b" font-size="12" font-weight="normal" font-family="SFMono-Regular,Consolas,Menlo,monospace" xml:space="preserve">T2</text>
+<text x="132" y="675" fill="#8a93a3" font-size="11" font-weight="normal" xml:space="preserve">Tool Misuse</text>
+<rect x="400" y="665" width="496" height="13" rx="6" fill="#2b303b"/>
+<rect x="400" y="665" width="496" height="13" rx="6" fill="#ebcb8b"/>
+<text x="904" y="675" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">1</text>
+<text x="28" y="698" fill="#ebcb8b" font-size="12" font-weight="normal" font-family="SFMono-Regular,Consolas,Menlo,monospace" xml:space="preserve">T3</text>
+<text x="132" y="698" fill="#8a93a3" font-size="11" font-weight="normal" xml:space="preserve">Privilege Compromise</text>
 <rect x="400" y="688" width="496" height="13" rx="6" fill="#2b303b"/>
 <rect x="400" y="688" width="496" height="13" rx="6" fill="#ebcb8b"/>
 <text x="904" y="698" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">1</text>
-<text x="28" y="721" fill="#ebcb8b" font-size="12" font-weight="normal" font-family="SFMono-Regular,Consolas,Menlo,monospace" xml:space="preserve">T3</text>
-<text x="132" y="721" fill="#8a93a3" font-size="11" font-weight="normal" xml:space="preserve">Privilege Compromise</text>
+<text x="28" y="721" fill="#ebcb8b" font-size="12" font-weight="normal" font-family="SFMono-Regular,Consolas,Menlo,monospace" xml:space="preserve">T4</text>
+<text x="132" y="721" fill="#8a93a3" font-size="11" font-weight="normal" xml:space="preserve">Resource Overload</text>
 <rect x="400" y="711" width="496" height="13" rx="6" fill="#2b303b"/>
 <rect x="400" y="711" width="496" height="13" rx="6" fill="#ebcb8b"/>
 <text x="904" y="721" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">1</text>
-<text x="28" y="744" fill="#ebcb8b" font-size="12" font-weight="normal" font-family="SFMono-Regular,Consolas,Menlo,monospace" xml:space="preserve">T4</text>
-<text x="132" y="744" fill="#8a93a3" font-size="11" font-weight="normal" xml:space="preserve">Resource Overload</text>
-<rect x="400" y="734" width="496" height="13" rx="6" fill="#2b303b"/>
-<rect x="400" y="734" width="496" height="13" rx="6" fill="#ebcb8b"/>
-<text x="904" y="744" fill="#d8dee9" font-size="11" font-weight="700" xml:space="preserve">1</text>
-<text x="28" y="773" fill="#8a93a3" font-size="10.5" font-weight="normal" xml:space="preserve">Never hand-edited — built from rule tags by coverage/build_coverage.py.</text>
+<text x="28" y="750" fill="#8a93a3" font-size="10.5" font-weight="normal" xml:space="preserve">Never hand-edited — built from rule tags by coverage/build_coverage.py.</text>
 </svg>

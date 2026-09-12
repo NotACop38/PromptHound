@@ -1,5 +1,6 @@
 [
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:00Z",
     "event.id": "6a000100-0000-4a00-8000-0000000000100",
@@ -20,6 +21,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:06Z",
     "event.id": "6a000101-0000-4a00-8000-0000000000101",
@@ -40,6 +42,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:12Z",
     "event.id": "6a000102-0000-4a00-8000-0000000000102",
@@ -60,6 +63,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:18Z",
     "event.id": "6a000103-0000-4a00-8000-0000000000103",
@@ -80,6 +84,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:24Z",
     "event.id": "6a000104-0000-4a00-8000-0000000000104",
@@ -100,6 +105,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:30Z",
     "event.id": "6a000105-0000-4a00-8000-0000000000105",
@@ -120,6 +126,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:36Z",
     "event.id": "6a000106-0000-4a00-8000-0000000000106",
@@ -140,6 +147,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:42Z",
     "event.id": "6a000107-0000-4a00-8000-0000000000107",
@@ -160,6 +168,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:48Z",
     "event.id": "6a000108-0000-4a00-8000-0000000000108",
@@ -180,6 +189,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:30:54Z",
     "event.id": "6a000109-0000-4a00-8000-0000000000109",
@@ -200,6 +210,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:31:00Z",
     "event.id": "6a000110-0000-4a00-8000-0000000000110",
@@ -220,6 +231,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:31:06Z",
     "event.id": "6a000111-0000-4a00-8000-0000000000111",
@@ -240,6 +252,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:31:12Z",
     "event.id": "6a000112-0000-4a00-8000-0000000000112",
@@ -260,6 +273,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:31:18Z",
     "event.id": "6a000113-0000-4a00-8000-0000000000113",
@@ -280,6 +294,7 @@
     "tool.call.outcome": "success"
   },
   {
+    "user.tenant.id": "tenant-demo",
     "schema_version": "0.1",
     "timestamp": "2026-06-04T18:31:24Z",
     "event.id": "6a000114-0000-4a00-8000-0000000000114",

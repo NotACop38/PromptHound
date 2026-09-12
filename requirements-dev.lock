@@ -1,24 +1,38 @@
-# PromptHound — pinned local-CI toolchain (PRD §13, §16; CHECKLIST Phase 6).
-#
-# These are the tools `python scripts/ci.py` shells out to. pyproject.toml lists
-# them with floors (.[dev], .[security]); this file pins the *exact* versions so
-# the green pass is reproducible — a lint/format/type tool that floats across
-# versions makes CI pass or fail by luck, which breaks the "a stranger can add a
-# rule and get it merged via CI" bar. Bump = a reviewed change (re-run ci.py,
-# regenerate out/ if a format/style change touches generated content).
-#
-# Install the full local toolchain into one environment:
-#   python -m pip install -r requirements.lock -r requirements-dev.lock -e .
-#
-# (requirements.lock pins the runtime deps audited by the security stage; this
-#  dev toolchain is deliberately kept out of that audited surface.)
+# Pinned development and build toolchain, including transitive dependencies.
+# Install together with requirements.lock; both are audited by the security gate.
+# Regenerate from a reviewed environment when updating tool versions.
 
-# Lint + format (ruff format --check, ruff check) — version determines style.
-ruff==0.15.16
-# Static typing (mypy prompthound) — version determines unused-ignore detection.
-mypy==2.1.0
-# Test runner (pytest -q) for the fire/silence + snapshot suites.
-pytest==9.0.3
-# Security stage (PRD §8 P1–P4, §17): supply-chain audit + first-party SAST.
-pip-audit==2.10.0
+ast-serialize==0.5.0
 bandit==1.9.4
+boolean.py==5.0
+cachecontrol==0.14.4
+colorama==0.4.6
+cyclonedx-python-lib==11.8.0
+defusedxml==0.7.1
+iniconfig==2.3.0
+librt==0.11.0
+license-expression==30.4.4
+markdown-it-py==4.2.0
+mdurl==0.1.2
+msgpack==1.2.1
+mypy==2.1.0
+mypy-extensions==1.1.0
+packageurl-python==0.17.6
+pathspec==1.1.1
+pip==26.2.1
+pip-api==0.0.34
+pip-audit==2.10.0
+pip-requirements-parser==32.0.1
+platformdirs==4.10.0
+pluggy==1.6.0
+py-serializable==2.1.0
+pygments==2.20.0
+pytest==9.0.3
+rich==15.0.0
+ruff==0.15.16
+setuptools==84.0.0
+sortedcontainers==2.4.0
+stevedore==5.8.0
+tomli==2.4.1
+tomli-w==1.2.0
+wheel==0.48.0

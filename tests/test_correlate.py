@@ -3,7 +3,7 @@
 The per-rule suites (test_dos_cost_abuse.py, test_jailbreak.py, ...) prove the
 shipped correlations fire/stay silent on their samples; these tests pin the
 *evaluator's own semantics* on a minimal synthetic rule: threshold boundaries,
-sliding-window anchoring, group isolation, the fail-loud contract for
+fixed UTC buckets, group isolation, the fail-loud contract for
 unsupported correlation shapes, and the selection/correlation file dispatch.
 
 Run just these with ``pytest -k correlate -q``.
@@ -94,7 +94,7 @@ def test_correlate_silent_one_under_threshold(rule_file: Path) -> None:
     assert correlation_hits(rule_file, [_event(0), _event(1)]) == []
 
 
-def test_correlate_window_is_sliding_and_half_open(rule_file: Path) -> None:
+def test_correlate_window_is_fixed_and_half_open(rule_file: Path) -> None:
     # Three matches spread over 8 minutes: no 5-minute window anchored at a
     # match holds all three, so the correlation must stay silent.
     spread = [_event(0), _event(4), _event(8)]

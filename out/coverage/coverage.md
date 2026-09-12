@@ -2,11 +2,13 @@
 
 > Auto-generated from rule metadata by `coverage/build_coverage.py`. Do not hand-edit.
 
-**15 rules** · OWASP LLM Top 10 covered: **6/10**
+**15 rules** · OWASP LLM Top 10 mapped: **6/10**
 
 ## OWASP LLM Top 10 (2025)
 
-| OWASP | Category | Covered | Rules | Rule files |
+Mapped means a tagged rule exists, not validated attack coverage.
+
+| OWASP | Category | Mapped | Rules | Rule files |
 |---|---|:---:|:---:|---|
 | LLM01 | Prompt Injection | ✅ | 4 | `jailbreak/persona_safety_bypass_loop.yml`<br>`prompt_injection/direct_injection_marker_count.yml`<br>`prompt_injection/direct_injection_markers.yml`<br>`prompt_injection/indirect_injection_from_untrusted_source.yml` |
 | LLM02 | Sensitive Information Disclosure | ✅ | 1 | `data_exfiltration/pii_secret_exfiltration_in_output.yml` |
@@ -32,7 +34,6 @@
 | AML.T0054 | LLM Jailbreak | technique | 1 | `jailbreak/persona_safety_bypass_loop.yml` |
 | AML.T0056 | LLM Meta Prompt Extraction | technique | 2 | `system_prompt_extraction/extract_system_prompt_markers.yml`<br>`system_prompt_extraction/system_prompt_leaked_in_output.yml` |
 | AML.T0085.001 | AI Agent Tools | technique | 2 | `agent_tool_abuse/anomalous_tool_call_chain.yml`<br>`agent_tool_abuse/denied_tool_retry_loop.yml` |
-| AML.TA0015 | Command and Control | tactic | 3 | `agent_tool_abuse/anomalous_tool_call_chain.yml`<br>`agent_tool_abuse/denied_tool_retry_loop.yml`<br>`agent_tool_abuse/tool_call_amplification_loop.yml` |
 
 ## MITRE ATT&CK (cross-reference)
 
@@ -55,4 +56,4 @@
 | Tier | Description | Rules |
 |---|---|:---:|
 | T1 | Operational / metadata (always-on) | 11 |
-| T2 | Content inspection (opt-in) | 6 |
+| T2 | Content inspection (opt-in) | 5 |

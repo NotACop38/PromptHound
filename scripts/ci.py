@@ -85,6 +85,10 @@ def schema_validate() -> bool:
         # A sample file holds either a single event (selection-match rules) or a
         # JSON array of events (correlation rules, whose positive is a burst).
         events = payload if isinstance(payload, list) else [payload]
+        if not events:
+            print(f"  INVALID  {path.name}: empty sample array")
+            ok = False
+            continue
         errors = [
             f"[{i}] {error}"
             for i, event in enumerate(events)
@@ -147,33 +151,33 @@ def convert_stage() -> bool:
 
 # --- coverage-build stage (PRD §16, CHECKLIST Phase 4) ------------------------
 #
-# Unlike the read-only convert snapshot check, this stage *regenerates* the
-# OWASP x ATLAS coverage map into out/coverage/ from rule metadata only. It fails
-# on any build error -- a missing required tag (OWASP + tier + technique mapping)
-# or an unknown/un-catalogued tag -- so the map can never silently go stale.
+# Coverage and presentation assets are compared with committed snapshots.
+# Regeneration belongs to release.py; CI must not silently repair drift.
 
 
 def coverage_build_stage() -> bool:
-    """Regenerate the coverage map (out/coverage/ + the README SVG); fail on bad tags."""
-    from coverage.build_coverage import REPO_ROOT as COVERAGE_REPO_ROOT
-    from coverage.build_coverage import (
+    """Check coverage snapshots without repairing the evidence under test."""
+    from prompthound.coverage import REPO_ROOT as COVERAGE_REPO_ROOT
+    from prompthound.coverage import (
         generate_artifacts,
         generate_presentation_assets,
-        write_artifacts,
     )
 
     artifacts, errors = generate_artifacts()
     assets, asset_errors = generate_presentation_assets()
-    errors = errors or asset_errors
+    errors += asset_errors
     if errors:
         for error in errors:
             print(f"  [FAIL] {error}")
         return False
-    write_artifacts(artifacts)
-    write_artifacts(assets)
-    for path in sorted({**artifacts, **assets}):
-        print(f"  [ ok ] {path.relative_to(COVERAGE_REPO_ROOT)}")
-    return True
+    ok = True
+    for path, expected in sorted({**artifacts, **assets}.items()):
+        if not path.is_file() or path.read_text(encoding="utf-8") != expected:
+            print(f"  [FAIL] {path.relative_to(COVERAGE_REPO_ROOT)}: snapshot drift")
+            ok = False
+        else:
+            print(f"  [ ok ] {path.relative_to(COVERAGE_REPO_ROOT)}")
+    return ok
 
 
 # --- security stage (PRD §8 P1-P4, §17) ---------------------------------------

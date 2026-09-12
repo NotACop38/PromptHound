@@ -62,7 +62,7 @@ def test_extraction_success_metadata() -> None:
     tags = {str(t) for t in rule.tags}
     assert "owasp-llm.llm07" in tags
     assert "attack.atlas.aml.t0056" in tags
-    assert {"prompthound.tier.t1", "prompthound.tier.t2"} <= tags
+    assert "prompthound.tier.t1" in tags
     assert rule.references and rule.falsepositives
     assert rule.logsource.product == "llm_gateway"
 

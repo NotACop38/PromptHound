@@ -4,16 +4,15 @@ The single-event matcher (:mod:`prompthound.matcher`) cannot express a windowed
 aggregation, so correlation rules get their own evaluator here: filter events
 through the correlation's *base* detection with :func:`~prompthound.matcher.
 rule_matches`, group the matches by the correlation's ``group-by`` fields, and
-slide its ``timespan`` window over each group's timestamps until the threshold
-condition passes. This is the one implementation shared by the per-rule fire/
+count fixed UTC ``timespan`` buckets until the threshold condition passes.
+This is the one implementation shared by the per-rule fire/
 silence tests, the demo, and the generator drift guard — the offline result is
 defined in exactly one place.
 
-Window semantics: for each group, candidate windows are anchored at each matched
-event's timestamp and span ``[start, start + timespan)``. The first window whose
-event count satisfies the correlation condition raises one alert for the group
-(carrying that window's count); a group alerts at most once. This mirrors how a
-streaming SIEM aggregation first crosses the threshold.
+Window semantics match the shipped SPL/KQL: fixed UTC buckets, with an inclusive
+start and exclusive end. A burst split across two buckets can be missed. This
+offline summary reports the first qualifying bucket per group, while a SIEM
+query returns every qualifying bucket. Missing/empty group keys are excluded.
 
 Supported is the subset of Sigma correlations the rule pack uses: a single
 ``event_count`` correlation over a single base rule, with ``gte``/``gt``/
@@ -34,6 +33,7 @@ from sigma.correlations import SigmaCorrelationCondition, SigmaCorrelationRule
 from sigma.rule import SigmaRule
 
 from prompthound.matcher import Event, rule_matches
+from prompthound.schema import parse_timestamp
 
 _CONDITION_OPS: dict[str, Callable[[int, int], bool]] = {
     "GTE": lambda count, threshold: count >= threshold,
@@ -83,12 +83,34 @@ def is_correlation_file(path: str | Path) -> bool:
     return any(isinstance(r, SigmaCorrelationRule) for r in collection.rules)
 
 
+def validate_correlation(base: SigmaRule, correlation: SigmaCorrelationRule) -> None:
+    """Reject shapes the offline evaluator and both query emitters cannot preserve."""
+    if not isinstance(correlation.condition, SigmaCorrelationCondition):
+        raise NotImplementedError("unsupported correlation condition shape")
+    if str(correlation.type) != "event_count" or correlation.condition.fieldref is not None:
+        raise NotImplementedError("only event_count correlations without fieldref are supported")
+    if (
+        not correlation.rules
+        or len(correlation.rules) != 1
+        or correlation.rules[0].rule is not base
+    ):
+        raise NotImplementedError("correlation must reference exactly its one base rule")
+    if correlation.aliases:
+        raise NotImplementedError("correlation aliases are not supported")
+    span = correlation.timespan.seconds
+    if span <= 0 or 86400 % span:
+        raise NotImplementedError("timespan must be a positive divisor of one UTC day")
+    if correlation.condition.op.name not in _CONDITION_OPS:
+        raise NotImplementedError("unsupported correlation condition operator")
+
+
 def correlation_alerts(
     base: SigmaRule,
     correlation: SigmaCorrelationRule,
     events: Sequence[Event],
 ) -> list[CorrelationAlert]:
     """Alerts for one correlation over ``events`` (at most one per group)."""
+    validate_correlation(base, correlation)
     if str(correlation.type) != "event_count":
         raise NotImplementedError(
             f"unsupported correlation type: {correlation.type} (only event_count)"
@@ -105,18 +127,23 @@ def correlation_alerts(
     span = dt.timedelta(seconds=correlation.timespan.seconds)
     threshold = condition.count
 
-    groups: dict[tuple[object, ...], list[dt.datetime]] = defaultdict(list)
+    groups: dict[tuple[object, ...], dict[dt.datetime, int]] = defaultdict(dict)
+    epoch = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
     for event in events:
         if not rule_matches(base, event):
             continue
         key = tuple(event.get(field) for field in group_by)
-        groups[key].append(_parse_timestamp(event))
+        if any(value is None or value == "" for value in key):
+            continue
+        if any(not isinstance(value, (str, int, float, bool)) for value in key):
+            raise ValueError("correlation group keys must be scalar values")
+        time = _parse_timestamp(event)
+        bucket = epoch + ((time - epoch) // span) * span
+        groups[key][bucket] = groups[key].get(bucket, 0) + 1
 
     alerts: list[CorrelationAlert] = []
-    for key, times in groups.items():
-        times.sort()
-        for start in times:  # candidate windows anchored at each matched event
-            count = sum(1 for t in times if start <= t < start + span)
+    for key, buckets in groups.items():
+        for _, count in sorted(buckets.items()):
             if passes(count, threshold):
                 alerts.append(CorrelationAlert(key, count))
                 break
@@ -156,7 +183,7 @@ def _parse_timestamp(event: Event) -> dt.datetime:
     raw = event.get("timestamp")
     if not isinstance(raw, str):
         raise ValueError(f"event is missing a string 'timestamp' field: {raw!r}")
-    return dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    return parse_timestamp(raw)
 
 
 __all__ = [

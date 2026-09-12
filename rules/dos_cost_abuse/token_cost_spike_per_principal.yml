@@ -5,7 +5,7 @@
 # This file is a two-document Sigma collection:
 #   1) a base rule that matches a single high-token LLM completion, and
 #   2) a correlation rule that counts those completions per principal in a
-#      sliding window and fires on a burst (the cost spike / denial-of-wallet
+#      fixed UTC window and fires on a burst (the cost spike / denial-of-wallet
 #      signal).
 #
 # Tier 1 (PRD §10.2): keys only on always-on operational metrics
@@ -34,17 +34,16 @@ detection:
     gen_ai.usage.total_tokens|gte: 8000
   condition: completion and high_tokens
 ---
-title: Token/cost spike per principal (denial of wallet)
+title: Repeated high-token completions per principal
 id: b924da29-decc-44bc-9b56-2bdf66b4fafc
 status: experimental
 description: >
   Detects a single principal (user.id) issuing a burst of high-token LLM
   completions within a short window — the log signature of model/endpoint
   denial-of-service and cost-abuse (denial-of-wallet). Aggregation is
-  per-principal over a sliding 5-minute window; the alert is the count of
+  per-principal over a fixed UTC 5-minute window; the alert is the count of
   high-token completions crossing a threshold, a Tier-1 proxy for a runaway
-  token/cost spike. See docs/authoring.md for the KQL aggregation workaround
-  (the Kusto backend does not emit Sigma correlations).
+  token/cost spike. See docs/deployment.md for fixed UTC windows and tenant-scoped grouping.
 references:
   - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
   - https://atlas.mitre.org/techniques/AML.T0034
@@ -61,6 +60,7 @@ correlation:
   rules:
     - dow_high_token_request
   group-by:
+    - user.tenant.id
     - user.id
   timespan: 5m
   condition:

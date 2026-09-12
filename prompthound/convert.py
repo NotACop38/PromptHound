@@ -14,7 +14,6 @@ installed; the cost is paid only when a conversion is actually requested.
 from __future__ import annotations
 
 import sys
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,12 +33,10 @@ class ConversionResult:
     Sigma file may hold several). ``spl`` is plain SPL; ``savedsearches`` is the
     same content as a ``savedsearches.conf`` document; ``kql`` is Sentinel KQL.
 
-    ``is_correlation`` flags a file containing a Sigma correlation rule. The
-    Splunk backend emits the full correlation as SPL, but the Kusto backend
-    (1.0.x) emits no correlations at all (PRD §11 #7, docs/authoring.md). For
-    those, ``kql`` is the *base* rule's query plus the windowed aggregation as a
-    ``// summarize`` comment the analyst un-comments -- so SPL is always
-    complete while KQL aggregation is best-effort + documented.
+    Correlation output is executable in both backends. PromptHound implements
+    the supported single-base event_count subset with fixed UTC time buckets;
+    unsupported shapes fail conversion. These are query templates requiring
+    the ingestion contract in docs/deployment.md, not installed alerts.
     """
 
     rule_path: Path
@@ -49,7 +46,7 @@ class ConversionResult:
     is_correlation: bool = False
 
 
-# KQL comparison operators for the aggregation-workaround comment, keyed by the
+# KQL comparison operators for executable aggregation, keyed by the
 # pySigma correlation-condition operator name.
 _KQL_COMPARE = {"GT": ">", "GTE": ">=", "LT": "<", "LTE": "<=", "EQ": "==", "NEQ": "!="}
 
@@ -77,31 +74,32 @@ def convert_rule(
 
     from pipelines.prompthound_kusto import kusto_backend
     from pipelines.prompthound_splunk import splunk_backend
+    from prompthound.correlate import validate_correlation
     from prompthound.fieldmap import DEFAULT_QUERY_TABLE
 
     path = Path(rule_path)
     collection = SigmaCollection.load_ruleset([str(path)])
 
     correlations = [r for r in collection.rules if isinstance(r, SigmaCorrelationRule)]
-    # Snapshot the base rules' plain dicts BEFORE conversion: each backend's
-    # pipeline mutates the shared rule objects in place (field mapping), after
-    # which `to_dict()` can no longer reproduce the original detection.
-    base_dicts = (
-        [r.to_dict() for r in collection.rules if not isinstance(r, SigmaCorrelationRule)]
-        if correlations
-        else []
-    )
+    base_dicts = []
+    if correlations:
+        bases = [r for r in collection.rules if not isinstance(r, SigmaCorrelationRule)]
+        if len(bases) != 1 or len(correlations) != 1:
+            raise NotImplementedError("expected one base rule and one event_count correlation")
+        validate_correlation(bases[0], correlations[0])
+        base_dicts = [bases[0].to_dict()]
 
-    splunk = splunk_backend()
-    spl = list(splunk.convert(collection))
-    savedsearches = splunk.convert(collection, output_format="savedsearches")
+    # pySigma pipelines mutate rule objects. Each format gets a fresh parse so
+    # field mappings and conversion state cannot leak into the next backend.
+    spl = list(splunk_backend().convert(SigmaCollection.load_ruleset([str(path)])))
+    savedsearches = splunk_backend().convert(
+        SigmaCollection.load_ruleset([str(path)]), output_format="savedsearches"
+    )
 
     table = query_table or DEFAULT_QUERY_TABLE
     kusto = kusto_backend(query_table=table, flavour=kusto_flavour)  # type: ignore[arg-type]
 
     if correlations:
-        # The Kusto backend can't emit correlations: emit the base detection's KQL
-        # and append the windowed aggregation as a documented `// summarize` comment.
         kql = _correlation_kql(base_dicts, correlations, kusto)
     else:
         kql = list(kusto.convert(collection))
@@ -116,57 +114,35 @@ def convert_rule(
 
 
 def _correlation_kql(base_dicts: list[dict], correlations: list, kusto: object) -> list[str]:
-    """KQL for a correlation rule: base detection + a `// summarize` workaround.
-
-    The base rule(s) convert to KQL normally; the per-principal windowed
-    aggregation the Kusto backend can't express is appended as a commented
-    one-liner derived from the correlation's own group-by/timespan/threshold
-    (docs/authoring.md).
-
-    Base rules are re-parsed from their plain dict so they convert as standalone
-    detections: a base rule still linked to its correlation is suppressed by the
-    backend (correlations own their output), which would yield empty KQL.
-    """
+    """Emit the validated event_count subset using executable fixed UTC buckets."""
     from sigma.collection import SigmaCollection
     from sigma.rule import SigmaRule
 
     from prompthound.fieldmap import FIELD_MAP
 
     standalone = SigmaCollection([SigmaRule.from_dict(d) for d in base_dicts])
-    base_kql = list(kusto.convert(standalone))  # type: ignore[attr-defined]
-    if not base_kql:  # pragma: no cover - a correlation file always ships its base rule
-        return []
+    queries = list(kusto.convert(standalone))  # type: ignore[attr-defined]
+    if len(queries) != 1:
+        raise NotImplementedError("correlation base must produce exactly one KQL query")
+    correlation = correlations[0]
+    fields = [FIELD_MAP.get(f, f) for f in (correlation.group_by or [])]
+    # Group fields are schema columns; reject expressions or unknown spellings.
+    from prompthound.fieldmap import SCHEMA_FIELDS
 
-    workaround = "\n".join(_summarize_comment(c, FIELD_MAP) for c in correlations)
-    # Attach the workaround to the (single) base query; tolerate the multi-query case.
-    base_kql[-1] = f"{base_kql[-1]}\n{workaround}"
-    return base_kql
-
-
-def _summarize_comment(correlation: object, field_map: Mapping[str, str]) -> str:
-    """A commented KQL ``summarize`` line realizing the correlation's aggregation."""
-    group_by = ", ".join(field_map.get(f, f) for f in correlation.group_by)  # type: ignore[attr-defined]
-    ts = field_map.get("timestamp", "timestamp")
-    span = correlation.timespan.spec  # type: ignore[attr-defined]
-    cond = correlation.condition  # type: ignore[attr-defined]
-    op = _KQL_COMPARE.get(cond.op.name)
-    if op is None:
-        raise ValueError(f"unsupported correlation condition operator: {cond.op.name}")
-    ctype = str(correlation.type)  # type: ignore[attr-defined]
-    fieldref = field_map.get(cond.fieldref, cond.fieldref) if cond.fieldref else None
-    agg = {
-        "event_count": "count()",
-        "value_count": f"dcount({fieldref})",
-        "value_sum": f"sum({fieldref})",
-        "value_avg": f"avg({fieldref})",
-    }.get(ctype, "count()")
-    metric = ctype  # e.g. event_count
-    return (
-        "// PromptHound: the Kusto backend cannot emit Sigma correlations. To complete\n"
-        "// the per-principal windowed aggregation, append the following to the query:\n"
-        f"// | summarize {metric} = {agg} by {group_by}, bin({ts}, {span})\n"
-        f"// | where {metric} {op} {cond.count}"
+    if any(f not in SCHEMA_FIELDS for f in (correlation.group_by or [])):
+        raise ValueError("correlation group-by must use known schema fields")
+    span = correlation.timespan.seconds
+    op = _KQL_COMPARE[correlation.condition.op.name]
+    query = queries[0]
+    if fields:
+        query += "\n| where " + " and ".join(f"isnotempty({f})" for f in fields)
+    grouping = ", ".join([*fields, f"bin(timestamp, {span}s)"])
+    query += (
+        "\n// Fixed UTC buckets; bursts crossing a bucket boundary can be missed."
+        f"\n| summarize event_count = count() by {grouping}"
+        f"\n| where event_count {op} {correlation.condition.count}"
     )
+    return [query]
 
 
 __all__ = ["ConversionResult", "convert_rule"]

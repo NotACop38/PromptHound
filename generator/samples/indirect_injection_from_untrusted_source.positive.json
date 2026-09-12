@@ -1,4 +1,5 @@
 {
+  "user.tenant.id": "tenant-demo",
   "schema_version": "0.1",
   "timestamp": "2026-06-04T16:33:47Z",
   "event.id": "11d00001-0001-4a00-8000-0000000000d1",

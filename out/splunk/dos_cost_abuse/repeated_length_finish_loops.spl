@@ -1,6 +1,6 @@
 event_action IN ("chat", "text_completion") gen_ai_response_finish_reasons="length"
 
 | bin _time span=5m
-| stats count as event_count by _time gen_ai_conversation_id
+| stats count as event_count by _time user_tenant_id gen_ai_conversation_id
 
 | search event_count >= 5
