@@ -126,11 +126,7 @@ def _correlation_kql(base_dicts: list[dict], correlations: list, kusto: object) 
         raise NotImplementedError("correlation base must produce exactly one KQL query")
     correlation = correlations[0]
     fields = [FIELD_MAP.get(f, f) for f in (correlation.group_by or [])]
-    # Group fields are schema columns; reject expressions or unknown spellings.
-    from prompthound.fieldmap import SCHEMA_FIELDS
-
-    if any(f not in SCHEMA_FIELDS for f in (correlation.group_by or [])):
-        raise ValueError("correlation group-by must use known schema fields")
+    # Shared validation has already rejected unknown, dynamic and time keys.
     span = correlation.timespan.seconds
     op = _KQL_COMPARE[correlation.condition.op.name]
     query = queries[0]

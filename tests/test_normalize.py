@@ -65,6 +65,24 @@ def test_invalid_later_line_preserves_existing_output(tmp_path, event):
     assert sorted(p.name for p in tmp_path.iterdir()) == ["events.jsonl", "normalized.jsonl"]
 
 
+@pytest.mark.parametrize(
+    "duplicate",
+    [
+        '"content.input.injection_markers":9,"content.input.injection_markers":0',
+        '"extension":{"counter":9,"counter":0}',
+    ],
+)
+def test_duplicate_json_names_preserve_existing_output(tmp_path, event, duplicate):
+    source, output = tmp_path / "events.jsonl", tmp_path / "normalized.jsonl"
+    valid = json.dumps(event)
+    source.write_text(valid + "\n" + valid[:-1] + "," + duplicate + "}\n")
+    output.write_text("previous complete output\n")
+    with pytest.raises(ValueError, match="line 2"):
+        normalize_file(source, output)
+    assert output.read_text() == "previous complete output\n"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["events.jsonl", "normalized.jsonl"]
+
+
 def test_normalization_cannot_overwrite_source(tmp_path, event):
     source = tmp_path / "events.jsonl"
     source.write_text(json.dumps(event) + "\n")

@@ -154,10 +154,13 @@ time, identity scope and scheduling. Both backends emit executable event-count
 correlations over fixed UTC buckets; the offline evaluator follows those bucket
 semantics and summarizes the first qualifying bucket per group. Boundary misses
 are documented and tested. All shipped correlations group by tenant plus their
-principal/conversation key. Unsupported correlation shapes fail conversion.
+principal/conversation key. Unsupported correlation shapes fail conversion,
+including non-scalar group keys. String-array predicates support exact membership
+only; the tool-chain rule matches complete names from an application inventory.
 
 The schema ships in the wheel; `prompthound.normalize` validates and maps audit
-events without uploads. Derived detectors remain upstream responsibilities.
+events without uploads, rejecting duplicate JSON names before any values are lost.
+Derived detectors remain upstream responsibilities.
 Coverage means rule metadata presence; production effectiveness needs independent
 traffic evaluation. `docs/deployment.md` defines the qualification steps.
 

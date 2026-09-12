@@ -17,7 +17,7 @@ logsource:
 detection:
   selection:
     event.action: chat
-    guardrail.input.categories|contains: instruction_extraction
+    guardrail.input.categories: instruction_extraction
   markers:
     content.input.injection_markers|gte: 1
   condition: selection and markers

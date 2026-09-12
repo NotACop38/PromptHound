@@ -51,7 +51,7 @@ BANDIT_TARGETS: tuple[str, ...] = ("prompthound", "scripts", "pipelines", "cover
 IGNORED_VULNS: dict[str, str] = {
     # diskcache is a DIRECT dependency of the pinned pySigma runtime, even when
     # sigma-cli is not installed. No fixed release exists (through 5.6.3).
-    # version). Exploitation needs an attacker who already has write access to the
+    # Exploitation needs an attacker who already has write access to the
     # local on-disk cache directory — a local-trust scenario PromptHound does not
     # defend (offline, single-user, no shared/untrusted cache). See THREAT-MODEL.
     "CVE-2025-69872": (
@@ -62,8 +62,8 @@ IGNORED_VULNS: dict[str, str] = {
 
 # --- secrets scan -------------------------------------------------------------
 #
-# High-confidence credential shapes only — the goal is zero false negatives on a
-# real committed secret without drowning the signal in entropy heuristics. A line
+# High-confidence credential shapes only; this is not a complete detector for
+# arbitrary secrets. A line
 # carrying the inline marker below is treated as a vetted example, not a leak.
 
 #: Inline marker (detect-secrets convention) flagging a deliberate example value.

@@ -33,7 +33,7 @@ from sigma.correlations import SigmaCorrelationCondition, SigmaCorrelationRule
 from sigma.rule import SigmaRule
 
 from prompthound.matcher import Event, rule_matches
-from prompthound.schema import parse_timestamp
+from prompthound.schema import load_schema, parse_timestamp
 
 _CONDITION_OPS: dict[str, Callable[[int, int], bool]] = {
     "GTE": lambda count, threshold: count >= threshold,
@@ -97,6 +97,19 @@ def validate_correlation(base: SigmaRule, correlation: SigmaCorrelationRule) -> 
         raise NotImplementedError("correlation must reference exactly its one base rule")
     if correlation.aliases:
         raise NotImplementedError("correlation aliases are not supported")
+    properties = load_schema()["properties"]
+    for field in correlation.group_by or []:
+        field_type = properties.get(field, {}).get("type")
+        # KQL cannot summarize by dynamic columns. Event time is already a
+        # bucket key and must not also be emitted as an unbinned group column.
+        if (
+            not isinstance(field_type, str)
+            or field_type not in {"string", "integer", "number", "boolean"}
+            or field == "timestamp"
+        ):
+            raise NotImplementedError(
+                "correlation group-by requires scalar schema fields other than timestamp"
+            )
     span = correlation.timespan.seconds
     if span <= 0 or 86400 % span:
         raise NotImplementedError("timespan must be a positive divisor of one UTC day")

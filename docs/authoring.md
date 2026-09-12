@@ -224,8 +224,10 @@ harness; bursts across bucket boundaries can be missed. Missing grouping keys
 are excluded. The offline summary reports the first qualifying bucket per
 group, whereas SIEM queries return every qualifying bucket.
 
-Unsupported correlation shapes fail conversion. Array-valued KQL fields use
-membership for equality. See [deployment.md](deployment.md) for column types,
+Unsupported correlation shapes fail conversion, including non-scalar group
+fields. String-array fields support exact, case-insensitive membership;
+wildcards and contains/startswith/endswith modifiers fail conversion.
+See [deployment.md](deployment.md) for column types,
 identity requirements, scheduling and live qualification.
 
 ### Regenerating and snapshotting `out/`

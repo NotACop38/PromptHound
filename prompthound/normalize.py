@@ -17,6 +17,16 @@ from prompthound.fieldmap import FIELD_MAP
 from prompthound.schema import load_schema, validate_event
 
 
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate JSON names before the parser can discard detector data."""
+    result: dict[str, Any] = {}
+    for name, value in pairs:
+        if name in result:
+            raise ValueError("duplicate JSON object name")
+        result[name] = value
+    return result
+
+
 def normalize_event(event: dict[str, Any], schema: dict | None = None) -> dict[str, Any]:
     """Map an event without changing values or silently overwriting a column."""
     errors = validate_event(event, schema)
@@ -52,7 +62,9 @@ def normalize_file(source: Path, destination: Path) -> int:
             temporary = Path(writer.name)
             for lineno, line in enumerate(reader, 1):
                 try:
-                    event = normalize_event(json.loads(line), schema)
+                    event = normalize_event(
+                        json.loads(line, object_pairs_hook=_unique_object), schema
+                    )
                     writer.write(json.dumps(event, allow_nan=False, separators=(",", ":")) + "\n")
                 except (ValueError, TypeError) as exc:
                     raise ValueError(f"line {lineno}: invalid or ambiguous audit event") from exc

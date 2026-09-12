@@ -7,7 +7,8 @@ description: |
   Flags co-occurrence of sensitive-read and egress-like tool names within one
   chain. This does not test call order, arguments, destinations or authorization;
   it is a triage lead for potential tool misuse, not evidence of exfiltration.
-  Adapt the name markers to the application's tool inventory and baseline
+  Matches complete tool names, case-insensitively. Adapt the names to the
+  application's tool inventory (including namespaces and suffixes) and baseline
   legitimate read-and-notify workflows. Only Tier 1 metadata is required.
 references:
   - https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
@@ -33,7 +34,7 @@ detection:
       - invoke_agent
   # A privileged / sensitive-source read somewhere in the turn's chain.
   sensitive_source:
-    tool.call.chain|contains:
+    tool.call.chain:
       - 'read_file'
       - 'fs.read'
       - 'db.query'
@@ -46,7 +47,7 @@ detection:
       - 'get_credentials'
   # An external egress / send tool somewhere in the same chain.
   external_sink:
-    tool.call.chain|contains:
+    tool.call.chain:
       - 'send_email'
       - 'http.post'
       - 'http.request'

@@ -36,8 +36,9 @@ python -m prompthound.generator --out out/telemetry.jsonl --seed 0
 python -m prompthound.normalize --input out/telemetry.jsonl --out out/siem.jsonl
 ```
 
-The adapter validates events, retains types and values, and rejects unmapped
-dotted fields and column collisions. It replaces the output only after every
+The adapter validates events, retains types and values, and rejects duplicate
+JSON names at every nesting level, unmapped dotted fields and column collisions.
+It replaces the output only after every
 line succeeds. It neither uploads logs nor installs SIEM resources. Non-dotted
 extension fields are retained; provide their own ingestion mapping if needed.
 
@@ -58,9 +59,12 @@ Configure your data collection rule and ingestion transform for the normalized
 JSON. The pipeline name `sentinelasim` does not make this an ASIM schema. Both
 pipeline flavours still require this custom table and field contract.
 
-String-array equality uses case-insensitive membership in KQL. Current content
-and tool-chain substring rules inspect serialized values; these are marker
-searches and do not infer semantic intent, causal links, or tool-call ordering.
+String-array equality uses case-insensitive membership in KQL. Wildcards and
+substring/prefix/suffix modifiers on string arrays fail conversion because
+scalar predicates cannot preserve element semantics. The tool-chain rule uses
+complete tool names; adapt its lists to your inventory, including namespaces.
+Content rules search serialized message values. These are marker searches and
+do not infer semantic intent, causal links, or tool-call ordering.
 
 In Splunk, scope every raw `.spl` or saved-search stanza to your audit index and
 sourcetype. Configure timestamp parsing from `timestamp`, JSON field extraction,
@@ -73,6 +77,9 @@ lookback, alert actions, permissions, and throttling are deployment decisions.
 Both outputs contain executable `event_count` aggregation and threshold filters.
 The supported shape is one base detection and one correlation, no aliases, with
 `gt`, `gte`, `lt`, or `lte`, and a positive timespan that divides one UTC day.
+Group keys must be scalar schema fields other than `timestamp`; event time is
+already grouped into buckets. Arrays, objects, mixed types and unknown fields
+are rejected before conversion or offline evaluation.
 Unsupported shapes fail conversion. The shipped rules all use upper thresholds.
 
 Windows are fixed UTC buckets with inclusive starts and exclusive ends. For a

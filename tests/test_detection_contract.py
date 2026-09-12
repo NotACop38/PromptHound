@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from sigma.rule import SigmaRule
 
 from prompthound.convert import convert_rule
@@ -74,6 +75,56 @@ def test_kql_array_equality_uses_membership() -> None:
     kql = "\n".join(convert_rule(rule).kql)
     assert "set_has_element(" in kql
     assert 'gen_ai_response_finish_reasons =~ "length"' not in kql
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("user.roles", ["adm*n", "staff"]),
+        ("user.roles|startswith", "adm"),
+        ("user.roles|endswith", "min"),
+        ("user.roles|contains", "adm*n"),
+        ("user.roles|contains", "admin"),
+    ],
+)
+def test_conversion_rejects_array_patterns_without_element_semantics(tmp_path, field, value):
+    rule = tmp_path / "array.yml"
+    rule.write_text(yaml.safe_dump(_rule(field, value).to_dict()))
+    with pytest.raises(NotImplementedError, match="string-array"):
+        convert_rule(rule)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "user.roles",
+        "gen_ai.input.messages",
+        "tool.call.arguments",
+        "tool.call.result",
+        "timestamp",
+        "unknown",
+    ],
+)
+def test_dynamic_and_unknown_grouping_fails_before_conversion_or_evaluation(tmp_path, field):
+    rule = tmp_path / "group.yml"
+    rule.write_text(CORRELATION_RULE.replace("    - user.id", f"    - {field}"))
+    with pytest.raises(NotImplementedError, match="scalar schema fields"):
+        convert_rule(rule)
+    with pytest.raises(NotImplementedError, match="scalar schema fields"):
+        correlation_hits(rule, [])
+
+
+def test_tool_chain_uses_exact_inventory_names():
+    rule = SigmaRule.from_yaml(
+        (ROOT / "rules/agent_tool_abuse/anomalous_tool_call_chain.yml").read_text()
+    )
+    assert rule_matches(
+        rule, {"event.action": "execute_tool", "tool.call.chain": ["DB.QUERY", "send_email"]}
+    )
+    assert not rule_matches(
+        rule,
+        {"event.action": "execute_tool", "tool.call.chain": ["db.query_metadata", "send_email"]},
+    )
 
 
 def test_correlation_does_not_pool_tenants() -> None:

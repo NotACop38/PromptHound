@@ -20,9 +20,9 @@ primary success criterion; reproducible deployment and actionable alerts are.
 | Correlation conversion | KQL omitted executable aggregation and could alert on ordinary base events | Emit validated event-count aggregation and thresholds; reject unsupported shapes |
 | Evaluator | Sliding-window tests disagreed with Splunk's fixed buckets | Align to fixed UTC buckets; test the boundary blind spot explicitly |
 | Tenant isolation | Shared user/conversation IDs pooled events across tenants | Group every correlation by tenant; document identity namespacing and missing-key exclusion |
-| KQL types | String-array columns used scalar equality/list comparisons | Emit case-insensitive array membership |
+| KQL types | String-array columns used scalar equality/list comparisons | Emit case-insensitive array membership; reject unsupported array patterns and non-scalar correlation groups |
 | Wildcards | Offline prefix/suffix patterns matched in the middle; KQL list optimization discarded wildcard order | Preserve full-value wildcard semantics and disable the lossy optimization |
-| Input contract | Dotted event fields did not match underscore query columns; timestamps and nonfinite metrics passed validation | Add an atomic normalization adapter and validate usable event times, version and numeric values |
+| Input contract | Dotted event fields did not match underscore query columns; timestamps and nonfinite metrics passed validation | Add an atomic normalization adapter, reject duplicate JSON names at every depth, and validate usable event times, version and numeric values |
 | Packaging | Installed generator could not locate its schema; `coverage` imports conflicted with coverage.py | Package the canonical schema and move internal coverage code into the project namespace |
 | CI | Coverage regeneration repaired stale artifacts instead of rejecting them; demo tests also rewrote snapshots | Read-only snapshot check and isolated demo outputs |
 | Release | Arbitrary files under output directories could enter bundles; provenance/version/manifest claims were incomplete | Restrict to expected current artifacts, require release inputs, validate versions, and hash all payloads |
