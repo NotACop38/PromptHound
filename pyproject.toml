@@ -83,7 +83,7 @@ include = [
   "/src",
   "/rules",
   "/scenarios",
-  "/queries",
+  "/siem",
   "/docs",
   "/tests",
   "/scripts",
@@ -138,9 +138,6 @@ pythonpath = ["."]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
-markers = [
-  "siem: requires live Splunk and Kusto test endpoints (see docs/verification.md)",
-]
 
 [tool.coverage.run]
 source = ["prompthound"]

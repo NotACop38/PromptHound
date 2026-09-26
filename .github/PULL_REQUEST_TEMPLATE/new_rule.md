@@ -1,35 +1,30 @@
-<!--
-New detection rule PR. Metadata (OWASP + ATLAS + tier) and a positive AND
-negative sample are required — the metadata gate + fire/silence tests enforce
-them, and a reviewer will check P1 (signature, not payload).
-See docs/authoring.md ("add a rule in 10 minutes").
--->
+<!-- See docs/authoring.md for the rule format, the supported Sigma subset and scenario files. -->
 
 ## Rule
 
-- **Title:**
 - **File:** `rules/<category>/<name>.yml`
-- **Behavior (one rule = one behavior):**
+- **Behavior:** <!-- the one behavior the rule detects, and why it matters -->
+- **Telemetry:** <!-- metadata only, a content detector's output, or raw content -->
 
-## Required metadata (the gate fails without these)
+## Mappings
 
-- **OWASP LLM (2025):** `owasp-llm.llmNN` →
-- **MITRE ATLAS technique/tactic:** `attack.atlas.aml.…` →
-- **Detection tier:** `prompthound.tier.tN` →  <!-- T1 operational / T2 content -->
-- **OWASP Agentic (agent rules only, PRD D6):** `owasp-agentic.tNN` →  <!-- omit if not under agent_tool_abuse/ -->
+- **OWASP LLM Top 10 2025:** <!-- e.g. LLM01 -->
+- **OWASP Agentic Top 10 2026:** <!-- required for agent_tool_abuse rules, e.g. ASI02 -->
+- **MITRE ATLAS / ATT&CK:** <!-- e.g. AML.T0051.000 -->
 
-## Samples
+## Scenario cases
 
-- [ ] **Positive** (should-alert): `generator/samples/<name>.positive.json` — a log **signature**, not a working exploit (P1).
-- [ ] **Negative** (should-not-alert): `generator/samples/<name>.negative.json` — a near-miss benign event.
-- [ ] **Generator signature**: a `SampleSpec` in `prompthound/generator.py` with `rules=` pointing at the rule (the drift guard in `tests/test_generator.py` enforces this).
-- **Honest false positives:** <!-- where it misfires and how to scope/tune -->
+<!-- The cases that alert, the near misses that stay silent, and the boundaries tested. -->
+
+## False positives
+
+<!-- Where the rule fires on benign activity, and how to scope or tune it. -->
 
 ## Checklist
 
-- [ ] Standard Sigma fields present (`title`, `id` UUID, `status`, `description`, `author`, `date`, `logsource: {product: llm_gateway}`, `detection`, `falsepositives`, `level`).
-- [ ] `references:` to OWASP / ATLAS / CVE where relevant.
-- [ ] Positive test fires and negative test is silent (`pytest`).
-- [ ] Converts cleanly to SPL + KQL; `make release` run and the `out/` diff committed.
-- [ ] `make ci` green.
-- [ ] **P1–P4 honored** — this is a signature, nothing targets a live endpoint, no offensive how-to, Tier-1/derived preferred where equivalent.
+- [ ] `prompthound test` passes: every case behaves as declared and the rule meets the publication requirements.
+- [ ] `MUTATIONS` in `tests/test_scenarios.py` has an entry for the rule.
+- [ ] Generated files are regenerated (`make generate`) and committed.
+- [ ] `make verify-siem` passes.
+- [ ] Scenario text is a log signature, not a working payload.
+- [ ] `make ci` passes.

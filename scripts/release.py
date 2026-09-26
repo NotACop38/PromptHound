@@ -41,6 +41,7 @@ BUNDLE: Mapping[str, str] = {
     "docs/rules.md": "docs/rules.md",
     "docs/schema.md": "docs/schema.md",
     "docs/deployment.md": "docs/deployment.md",
+    "docs/verification.md": "docs/verification.md",
     "docs/atlas-navigator-layer.json": "docs/atlas-navigator-layer.json",
     "CHANGELOG.md": "CHANGELOG.md",
     "LICENSE": "LICENSE",
@@ -129,7 +130,8 @@ def build(version: str, commit: str, dirty: bool) -> list[Path]:
         "rules/     Sigma rules (DRL 1.1)\n"
         "siem/      Generated Splunk SPL, Splunk app and Microsoft Sentinel KQL (DRL 1.1)\n"
         "schema/    Audit-event JSON Schema (Apache-2.0)\n"
-        "docs/      Rule catalog, schema reference and deployment guide (Apache-2.0)\n\n"
+        "docs/      Rule catalog, schema reference, deployment and verification guides\n"
+        "           (Apache-2.0)\n\n"
         "Read docs/deployment.md before enabling any query as an alert.\n"
         "MANIFEST.json lists the SHA-256 of every file and the source commit.\n"
     )

@@ -3,20 +3,19 @@ PromptHound — detection content license
 
 SCOPE (not part of the license text below):
 
-  The detection *content* in this repository is licensed under the Detection
-  Rule License (DRL) 1.1, reproduced verbatim below. This covers:
+  The detection content in this repository is licensed under the Detection
+  Rule License (DRL) 1.1, reproduced verbatim below. It covers:
 
     * the Sigma rules under  rules/
-    * the SPL, KQL and savedsearches.conf generated from them under  out/
-      (and inside any released bundle under  out/dist/)
+    * the SPL, KQL, Splunk app and table definition generated from them under
+      siem/, and their copies in release archives
 
-  Everything else — the Python library, generator, pySigma pipelines, scripts,
-  coverage tooling, demo, docs, schema and tests — is licensed under the Apache
-  License, Version 2.0 (see LICENSE and NOTICE).
+  Everything else is licensed under the Apache License, Version 2.0 (see
+  LICENSE and NOTICE).
 
-  In short: take the rules and generated queries freely; if you redistribute
-  them (including modified) or ship alerts based on them, keep the author /
-  attribution and a link back to the rule set, per the DRL.
+  In short: use and adapt the rules and queries freely; if you share them
+  (including modified) or produce alerts with them, keep the author attribution
+  and a link to the rule set, as the DRL requires.
 
 ----------------------------------------------------------------------
 

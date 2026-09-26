@@ -1,6 +1,83 @@
 # Changelog
 
-## 0.2.0 — 2026-09-12
+All notable changes to PromptHound are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html); before 1.0, a minor
+version can contain breaking changes.
+
+## [0.3.0] — Unreleased
+
+PromptHound is rebuilt so that every rule matches the same events offline, in
+Splunk and in KQL, and the queries are verified in Splunk Enterprise and the
+Kusto engine. Upgrading requires changes to instrumentation, rules and
+deployments.
+
+### Breaking
+
+- The package moves to `src/prompthound` and installs a `prompthound` command
+  (`rules`, `test`, `generate`, `validate`, `normalize`, `evaluate`,
+  `readiness`, `convert`, `demo`). It replaces `python -m prompthound.generator`,
+  `python -m prompthound.normalize` and `demo/run_demo.py`.
+- Audit schema 0.2 adopts OpenTelemetry names: `event.action` becomes
+  `gen_ai.operation.name`, `app.name` becomes `service.name`, `app.env` becomes
+  `deployment.environment.name`, `source.ip` becomes `client.address`, and more.
+  Events declaring 0.1 are rejected. See the
+  [migration table](docs/schema.md#changes-from-01).
+- Framework mappings move from custom tags (`owasp-llm.*`, `attack.atlas.*`,
+  `prompthound.tier.*`) to a `prompthound:` block, since Sigma allows only
+  standard tag namespaces. ATLAS mappings are updated to ATLAS 2026.09.
+  Detection tiers are replaced by data classes: metadata, derived, content.
+- Generated content moves from `out/` to `siem/`. Splunk content is an app;
+  every search starts with the `prompthound_audit` macro, and saved searches are
+  named `PromptHound - <rule title>`.
+- The rule loader rejects constructs that do not behave identically in all
+  engines: null checks, values made only of wildcards, negated numeric or
+  string-array conditions, and non-ASCII letters in string-array values.
+- String matching ignores the case of ASCII letters only, as Splunk does. Offline
+  matching previously folded all letters.
+- Positive and negative sample files are replaced by scenario files with
+  multiple cases per rule.
+- Release archives are written to `dist/`.
+
+### Added
+
+- Engine verification: `scripts/verify_siem.py` runs every saved search and KQL
+  file, and 39 conformance cases, in Splunk Enterprise and the Kusto emulator,
+  and requires exact agreement with the offline evaluator.
+- 83 scenario cases, including window boundaries, tenant isolation and exact
+  thresholds, and a mutation test per rule.
+- Rule *Instruction-Disclosure Phrase in LLM Output*, split from the
+  system-prompt leak rule.
+- `prompthound readiness`: which rules a body of telemetry supports, and which
+  fields are missing.
+- A Splunk app with sourcetype settings, the search macro and disabled saved
+  searches, and a Sentinel table definition.
+- A vendored MITRE ATLAS catalog with `scripts/update_atlas.py`; every mapping
+  is validated against its catalog.
+- The wheel includes the rule pack and scenarios.
+- Universal lockfiles with hashes, and strict type checking of the tests.
+
+### Fixed
+
+- Splunk searches named string-array fields as scalars (`tool_call_chain`
+  instead of `tool_call_chain{}`), so conditions on arrays never matched.
+- Splunk searches were not scoped to an index or sourcetype, and every
+  `savedsearches.conf` carried a `[default]` stanza that changed the time range
+  of every saved search in the app.
+- Completion rules ignored the `generate_content` operation.
+- The ATLAS Navigator layer declared the wrong domain, and several ATLAS
+  technique names and mappings were out of date.
+- The offline evaluator reported only the first qualifying window per group;
+  it now reports every window, as the queries do.
+
+### Removed
+
+- `docs/PRD.md`, `docs/CHECKLIST.md` and `docs/REVIEW.md`, the coverage grid and
+  badge, and the recorded demo.
+
+## [0.2.0] — 2026-09-12
+
+### Changed
 
 - Emit executable Sentinel correlations; isolate tenants and align the offline
   evaluator with fixed UTC query buckets. Existing deployments must supply
@@ -17,18 +94,8 @@
 - Clarify experimental status, instrumentation requirements, signal limits and
   live SIEM qualification. Correct rule titles and metadata overclaims.
 
-
-All notable changes to PromptHound are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
-follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-The version is stamped into each release bundle by `scripts/release.py` (it reads
-`prompthound.__version__`). `scripts/ci.py` is the gate — run locally via `make ci`
-and by GitHub Actions on every PR and push to main.
-
-## [Unreleased]
-
 ### Added
+
 - **Hosted CI** (`.github/workflows/ci.yml`): GitHub Actions now runs the same
   `scripts/ci.py` gate as `make ci` on every pull request and push to main
   (Python 3.11 + 3.12), so contributions are checked by exactly the sequence
@@ -48,6 +115,7 @@ and by GitHub Actions on every PR and push to main.
   now fires **15/15 rules** (previously 10/15).
 
 ### Fixed
+
 - **Generated Sentinel KQL for boolean fields**: the pinned Kusto backend
   rendered Sigma boolean equality as `field =~ true` — KQL's `=~`/`!~` are
   string-only operators, so the queries for `unsanitized_output_to_sink` and
@@ -105,6 +173,3 @@ First public cut: a forkable, contributable, releasable detection library.
   (`LICENSE-RULES`).
 - **D8 — Packaging:** raw-query bundle ships now via `scripts/release.py`;
   deployable per-SIEM packaging remains a documented fast-follow.
-
-[Unreleased]: https://github.com/notacop38/prompthound/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/notacop38/prompthound/releases/tag/v0.1.0
