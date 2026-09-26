@@ -20,7 +20,7 @@ def test_readme_table_has_one_row_per_rule_linking_to_the_catalog(
     pack: list[rules.Rule], scenario_set: list[Scenario]
 ) -> None:
     table = catalog.readme_rule_table(pack).splitlines()
-    assert table[0] == "| Rule | Level | Logic | Telemetry | OWASP | ATLAS |"
+    assert table[0] == "| Category | Rule | Level | Logic | Telemetry | OWASP | ATLAS / ATT&CK |"
     rows = table[2:]
     assert len(rows) == len(pack)
     anchors = set(re.findall(r'<a id="([^"]+)"></a>', catalog.rule_catalog(pack, scenario_set)))
@@ -93,3 +93,19 @@ def test_atlas_layer_without_mappings() -> None:
     layer = json.loads(catalog.atlas_layer([]))
     assert layer["techniques"] == []
     assert layer["gradient"]["maxValue"] == 1
+
+
+def test_readme_table_names_each_category_once_and_lists_attack_techniques(
+    pack: list[rules.Rule],
+) -> None:
+    rows = catalog.readme_rule_table(pack).splitlines()[2:]
+    categories = [row.split(" | ")[0].removeprefix("| ") for row in rows]
+    named = [c for c in categories if c]
+    assert named == [catalog.category_name(c) for c in sorted({r.category for r in pack})]
+    unsanitized = next(row for row in rows if "unsanitized-output-to-sink" in row)
+    assert unsanitized.endswith("| T1059 |")
+
+
+def test_category_names() -> None:
+    assert catalog.category_name("dos_cost_abuse") == "Denial of service and cost abuse"
+    assert catalog.category_name("model_theft") == "Model theft"

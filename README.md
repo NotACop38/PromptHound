@@ -131,22 +131,22 @@ SPL/KQL use [DRL 1.1](LICENSE-RULES). Retain the applicable attribution and noti
 when redistributing; see [NOTICE](NOTICE).
 
 <!-- rules:start -->
-| Rule | Level | Logic | Telemetry | OWASP | ATLAS |
-|---|---|---|---|---|---|
-| [High Tool-Call Volume in One Conversation](docs/rules.md#tool-call-amplification-loop) | medium | Correlation | Metadata only | LLM10, LLM06, ASI02 | AML.T0034.002 |
-| [Repeated Denied Tool Calls in One Conversation](docs/rules.md#denied-tool-retry-loop) | medium | Correlation | Metadata only | LLM06, ASI03 | AML.T0053 |
-| [Sensitive-Read and Egress Tools in One Agent Tool Chain](docs/rules.md#anomalous-tool-call-chain) | medium | Single event | Metadata only | LLM06, ASI02 | AML.T0086, AML.T0085.001 |
-| [Repeated Sensitive Data in LLM Output for One Principal](docs/rules.md#pii-secret-exfiltration-in-output) | high | Correlation | Content detector | LLM02 | AML.T0057 |
-| [Completion Request Burst from One Principal](docs/rules.md#request-rate-burst-per-principal) | medium | Correlation | Metadata only | LLM10 | AML.T0034.000, AML.T0029 |
-| [Repeated High-Token Completions for One Principal](docs/rules.md#token-cost-spike-per-principal) | medium | Correlation | Metadata only | LLM10 | AML.T0034.001 |
-| [Repeated Length-Truncated Completions in One Conversation](docs/rules.md#repeated-length-finish-loops) | low | Correlation | Metadata only | LLM10 | AML.T0034 |
-| [Very Large Output Budget Requested](docs/rules.md#oversized-max-tokens) | low | Single event | Metadata only | LLM10 | AML.T0034.001 |
-| [Unsanitized LLM Output Reached an Interpreter or Renderer](docs/rules.md#unsanitized-output-to-sink) | high | Single event | Metadata only | LLM05, ASI05 | — |
-| [Repeated Blocked Jailbreak Attempts in One Conversation](docs/rules.md#persona-safety-bypass-loop) | medium | Correlation | Raw content | LLM01 | AML.T0054 |
-| [Injection Phrase in Retrieval-Augmented Input from Untrusted Sources](docs/rules.md#indirect-injection-from-untrusted-source) | medium | Single event | Raw content | LLM01 | AML.T0051.001 |
-| [Instruction-Override Phrase in LLM Input](docs/rules.md#direct-injection-markers) | medium | Single event | Raw content | LLM01 | AML.T0051.000 |
-| [Multiple Injection Markers Scored on LLM Input](docs/rules.md#direct-injection-marker-count) | medium | Single event | Content detector | LLM01 | AML.T0051.000 |
-| [Instruction-Disclosure Phrase in LLM Output](docs/rules.md#system-prompt-disclosure-phrases) | low | Single event | Raw content | LLM07 | AML.T0056 |
-| [System-Prompt Content Detected in LLM Output](docs/rules.md#system-prompt-leaked-in-output) | high | Single event | Content detector | LLM07 | AML.T0056 |
-| [System-Prompt Extraction Phrase in LLM Input](docs/rules.md#extract-system-prompt-markers) | medium | Single event | Raw content | LLM07 | AML.T0056 |
+| Category | Rule | Level | Logic | Telemetry | OWASP | ATLAS / ATT&CK |
+|---|---|---|---|---|---|---|
+| Agent tool abuse | [High Tool-Call Volume in One Conversation](docs/rules.md#tool-call-amplification-loop) | medium | Correlation | Metadata only | LLM10, LLM06, ASI02 | AML.T0034.002 |
+|  | [Repeated Denied Tool Calls in One Conversation](docs/rules.md#denied-tool-retry-loop) | medium | Correlation | Metadata only | LLM06, ASI03 | AML.T0053 |
+|  | [Sensitive-Read and Egress Tools in One Agent Tool Chain](docs/rules.md#anomalous-tool-call-chain) | medium | Single event | Metadata only | LLM06, ASI02 | AML.T0086, AML.T0085.001 |
+| Data exfiltration | [Repeated Sensitive Data in LLM Output for One Principal](docs/rules.md#pii-secret-exfiltration-in-output) | high | Correlation | Content detector | LLM02 | AML.T0057 |
+| Denial of service and cost abuse | [Completion Request Burst from One Principal](docs/rules.md#request-rate-burst-per-principal) | medium | Correlation | Metadata only | LLM10 | AML.T0034.000, AML.T0029 |
+|  | [Repeated High-Token Completions for One Principal](docs/rules.md#token-cost-spike-per-principal) | medium | Correlation | Metadata only | LLM10 | AML.T0034.001 |
+|  | [Repeated Length-Truncated Completions in One Conversation](docs/rules.md#repeated-length-finish-loops) | low | Correlation | Metadata only | LLM10 | AML.T0034 |
+|  | [Very Large Output Budget Requested](docs/rules.md#oversized-max-tokens) | low | Single event | Metadata only | LLM10 | AML.T0034.001 |
+| Insecure output handling | [Unsanitized LLM Output Reached an Interpreter or Renderer](docs/rules.md#unsanitized-output-to-sink) | high | Single event | Metadata only | LLM05, ASI05 | T1059 |
+| Jailbreak | [Repeated Blocked Jailbreak Attempts in One Conversation](docs/rules.md#persona-safety-bypass-loop) | medium | Correlation | Raw content | LLM01 | AML.T0054 |
+| Prompt injection | [Injection Phrase in Retrieval-Augmented Input from Untrusted Sources](docs/rules.md#indirect-injection-from-untrusted-source) | medium | Single event | Raw content | LLM01 | AML.T0051.001 |
+|  | [Instruction-Override Phrase in LLM Input](docs/rules.md#direct-injection-markers) | medium | Single event | Raw content | LLM01 | AML.T0051.000 |
+|  | [Multiple Injection Markers Scored on LLM Input](docs/rules.md#direct-injection-marker-count) | medium | Single event | Content detector | LLM01 | AML.T0051.000 |
+| System prompt extraction | [Instruction-Disclosure Phrase in LLM Output](docs/rules.md#system-prompt-disclosure-phrases) | low | Single event | Raw content | LLM07 | AML.T0056 |
+|  | [System-Prompt Content Detected in LLM Output](docs/rules.md#system-prompt-leaked-in-output) | high | Single event | Content detector | LLM07 | AML.T0056 |
+|  | [System-Prompt Extraction Phrase in LLM Input](docs/rules.md#extract-system-prompt-markers) | medium | Single event | Raw content | LLM07 | AML.T0056 |
 <!-- rules:end -->

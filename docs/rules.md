@@ -96,7 +96,7 @@ False positives:
 - Export or reporting jobs that run under one service principal.
 - An over-eager classifier that labels benign tokens, for example any number as a phone number.
 
-## Dos cost abuse
+## Denial of service and cost abuse
 
 <a id="request-rate-burst-per-principal"></a>
 ### Completion Request Burst from One Principal
@@ -183,7 +183,7 @@ False positives:
 - Long-form generation jobs configured with high output budgets; scope by service.name or raise the threshold.
 - Clients that send the model's maximum budget by default without intending to use it.
 
-## Insecure output
+## Insecure output handling
 
 <a id="unsanitized-output-to-sink"></a>
 ### Unsanitized LLM Output Reached an Interpreter or Renderer

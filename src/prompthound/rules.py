@@ -290,6 +290,12 @@ def _check_value(field: fields.Field, value: SigmaType) -> None:
     if isinstance(value, SigmaString):
         if any(part is SpecialChars.WILDCARD_SINGLE for part in value.s):
             raise RuleError(f"{name}: '?' wildcards cannot be expressed in Splunk search")
+        if not any(isinstance(part, str) and part for part in value.s):
+            # KQL stores a missing string as "", which such a value would match.
+            raise RuleError(
+                f"{name}: a value needs a character other than '*'; "
+                "existence checks are not supported"
+            )
         if field.is_string_array:
             if value.contains_special():
                 raise RuleError(f"{name}: string-array fields support exact element matching only")

@@ -17,6 +17,13 @@ def test_columns_are_unique() -> None:
     assert [column for column, n in counts.items() if n > 1] == []
 
 
+def test_columns_fit_log_analytics_limits() -> None:
+    # Azure Monitor: at most 45 characters per column name and 500 columns per table.
+    columns = [f.column for f in fields.registry().values()]
+    assert max(len(column) for column in columns) <= 45
+    assert len(columns) + 1 <= 500  # plus TimeGenerated
+
+
 @pytest.mark.parametrize(
     ("name", "column", "splunk", "sentinel"),
     [

@@ -18,8 +18,32 @@ from prompthound.scenarios import Scenario
 _REPO = "https://github.com/NotACop38/PromptHound/blob/main"
 
 
+#: Display names of the rule categories (the directories under ``rules/``).
+CATEGORY_NAMES = {
+    "agent_tool_abuse": "Agent tool abuse",
+    "data_exfiltration": "Data exfiltration",
+    "dos_cost_abuse": "Denial of service and cost abuse",
+    "insecure_output": "Insecure output handling",
+    "jailbreak": "Jailbreak",
+    "prompt_injection": "Prompt injection",
+    "system_prompt_extraction": "System prompt extraction",
+}
+
+
 def _escape(text: str) -> str:
     return text.replace("|", "\\|")
+
+
+def category_name(category: str) -> str:
+    """``prompt_injection`` -> ``"Prompt injection"``."""
+    return CATEGORY_NAMES.get(category, category.replace("_", " ").capitalize())
+
+
+def _techniques(rule: Rule) -> tuple[str, ...]:
+    """ATLAS technique IDs, then ATT&CK technique IDs (not tactics)."""
+    if rule.mappings is None:
+        return ()
+    return rule.mappings.atlas + tuple(i for i in rule.mappings.attack if i[:1] == "T")
 
 
 def window(seconds: int) -> str:
@@ -60,19 +84,22 @@ def _mapping_labels(rule: Rule) -> list[str]:
 
 
 def readme_rule_table(rules: Sequence[Rule]) -> str:
-    """Compact rule table for the README."""
+    """Compact rule table for the README, grouped by category."""
     lines = [
-        "| Rule | Level | Logic | Telemetry | OWASP | ATLAS |",
-        "|---|---|---|---|---|---|",
+        "| Category | Rule | Level | Logic | Telemetry | OWASP | ATLAS / ATT&CK |",
+        "|---|---|---|---|---|---|---|",
     ]
+    previous = None
     for rule in sorted(rules, key=lambda r: (r.category, r.title)):
         mappings = rule.mappings
         owasp = ", ".join((mappings.owasp_llm + mappings.owasp_agentic) if mappings else ())
-        atlas = ", ".join(mappings.atlas if mappings else ()) or "—"
+        category = category_name(rule.category) if rule.category != previous else ""
+        previous = rule.category
         logic = "Correlation" if rule.correlation else "Single event"
         lines.append(
-            f"| [{_escape(rule.title)}](docs/rules.md#{_anchor(rule)}) | {rule.level} | {logic} "
-            f"| {_requirements(rule)} | {owasp} | {atlas} |"
+            f"| {category} | [{_escape(rule.title)}](docs/rules.md#{_anchor(rule)}) "
+            f"| {rule.level} | {logic} | {_requirements(rule)} | {owasp or '—'} "
+            f"| {', '.join(_techniques(rule)) or '—'} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -102,7 +129,7 @@ def rule_catalog(rules: Sequence[Rule], scenarios: Sequence[Scenario]) -> str:
         "",
     ]
     for category in sorted(by_category):
-        out += [f"## {category.replace('_', ' ').capitalize()}", ""]
+        out += [f"## {category_name(category)}", ""]
         for rule in sorted(by_category[category], key=lambda r: r.title):
             out += _rule_section(rule, cases.get(rule.relpath, ()))
     return "\n".join(out).rstrip("\n") + "\n"
@@ -216,4 +243,12 @@ def atlas_layer(rules: Sequence[Rule]) -> str:
     return json.dumps(layer, indent=2) + "\n"
 
 
-__all__ = ["atlas_layer", "readme_rule_table", "rule_catalog", "schema_reference", "window"]
+__all__ = [
+    "CATEGORY_NAMES",
+    "atlas_layer",
+    "category_name",
+    "readme_rule_table",
+    "rule_catalog",
+    "schema_reference",
+    "window",
+]

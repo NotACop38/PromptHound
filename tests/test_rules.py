@@ -94,6 +94,9 @@ def test_rules_without_a_metadata_block_load(write_rule: RuleWriter) -> None:
             r"cost\.usd: a negated condition",
         ),
         ({"s": {"tool.call.chain": "Élan"}, "condition": "s"}, "non-ASCII letters"),
+        ({"s": {"user.id": "*"}, "condition": "s"}, "existence checks are not supported"),
+        ({"s": {"user.id|contains": ""}, "condition": "s"}, "existence checks"),
+        ({"s": {"tool.call.chain": ""}, "condition": "s"}, "existence checks"),
         ({"s": {"cost.usd|neq": 1}, "condition": "s"}, "unsupported modifier"),
     ],
 )
