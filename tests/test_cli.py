@@ -273,7 +273,12 @@ def test_a_closed_pipe_exits_quietly(
     assert redirected == [sys.stdout.fileno()]
 
 
-def test_a_closed_pipe_in_a_real_process() -> None:
+@pytest.mark.parametrize("unbuffered", [False, True], ids=["buffered", "unbuffered"])
+def test_a_closed_pipe_in_a_real_process(unbuffered: bool) -> None:
+    # Buffered output fits in the pipe buffer and fails only when flushed.
+    env = {name: value for name, value in os.environ.items() if name != "PYTHONUNBUFFERED"}
+    if unbuffered:
+        env["PYTHONUNBUFFERED"] = "1"
     reader, writer = os.pipe()
     os.close(reader)
     process = subprocess.run(
@@ -282,6 +287,7 @@ def test_a_closed_pipe_in_a_real_process() -> None:
         stderr=subprocess.PIPE,
         check=False,
         cwd=ROOT,
+        env=env,
     )
     os.close(writer)
     assert process.returncode == 1

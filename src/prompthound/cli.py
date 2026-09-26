@@ -332,16 +332,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     handler: Handler = args.handler
     try:
-        return handler(args)
-    except (RuleError, ScenarioError, FileNotFoundError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+        try:
+            code = handler(args)
+        except (RuleError, ScenarioError, FileNotFoundError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            code = 2
+        # Output shorter than the pipe buffer is only written here; flushing now
+        # reports a closed pipe below instead of at interpreter exit.
+        sys.stdout.flush()
     except BrokenPipeError:
         # The reader went away (for example `prompthound evaluate ... | head`).
-        # Silence the flush at interpreter exit as well.
+        # Point stdout at /dev/null so the flush at interpreter exit is silent.
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
         return 1
+    return code
 
 
 __all__ = ["build_parser", "main"]
