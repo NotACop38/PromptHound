@@ -1,0 +1,40 @@
+cases:
+  - name: Sixteen tool calls in one conversation
+    expect: alert
+    alerts: 1
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+          gen_ai.agent.name: research-agent
+        repeat: 16
+        interval: 5s
+
+  - name: Fifteen calls meet the threshold
+    expect: alert
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+        repeat: 15
+        interval: 5s
+
+  - name: Fourteen calls stay below the threshold
+    expect: silent
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+        repeat: 14
+        interval: 5s
+
+  - name: Calls spread over five minutes stay below the threshold in every window
+    expect: silent
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+        repeat: 16
+        interval: 20s
+
+  - name: Chat completions are not counted
+    expect: silent
+    events:
+      - repeat: 20
+        interval: 3s

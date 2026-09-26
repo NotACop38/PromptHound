@@ -1,68 +1,54 @@
-# PromptHound — DoS / cost-abuse (denial-of-wallet) detection.
-# PRD §11 rule #7 (LLM10 Unbounded Consumption). A Sigma *correlation* rule:
-# repeated `length` finish reasons within one conversation — the signature of a
-# generation that keeps hitting the output cap and being continued, an
-# autonomous loop that burns tokens (and money) without converging.
-#
-# Tier 1 (PRD §10.2): keys only on the always-on finish-reason metadata
-# (gen_ai.response.finish_reasons) + conversation id. No prompt/response content
-#
-# Sample spec: generator/samples/repeated_length_finish_loops.{positive,negative}.json
----
-title: Length-truncated completion (loop building block)
+title: Length-Truncated Completion
 name: length_truncated_completion
 id: 5baf2a8d-7362-4064-9f95-15951702da01
 status: experimental
-description: >
-  A single LLM completion that stopped because it hit the output-token cap
-  (finish reason `length`). One truncation is normal; the correlation rule below
-  turns a sustained run of them in one conversation into a runaway-loop alert.
-logsource:
-  product: llm_gateway
-detection:
-  completion:
-    event.action:
-      - chat
-      - text_completion
-  truncated:
-    gen_ai.response.finish_reasons: length
-  condition: completion and truncated
----
-title: Repeated length-finish loop per conversation (denial of wallet)
-id: daea5beb-53d3-4ed6-bdce-cc642ed1f989
-status: experimental
-description: >
-  Detects a single conversation (gen_ai.conversation.id) accumulating repeated
-  `length`-truncated completions within a short window — the log signature of an
-  agent or auto-continue loop that keeps maxing out the output budget and being
-  re-prompted, burning tokens without converging (OWASP LLM10:2025 Unbounded
-  Consumption). Aggregation is per-conversation over a fixed UTC 5-minute window;
-  the alert is the count of truncated completions crossing a threshold, a Tier-1
-  proxy for a runaway loop. See docs/deployment.md for fixed UTC windows and tenant-scoped grouping.
-references:
-  - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
-  - https://atlas.mitre.org/techniques/AML.T0034
-  - https://atlas.mitre.org/techniques/AML.T0029
+description: |
+    Building block for the correlation below: a completion that stopped because it reached
+    its output-token limit.
 author: PromptHound contributors
 date: 2026-06-04
-tags:
-  - owasp-llm.llm10
-  - attack.atlas.aml.t0034
-  - attack.atlas.aml.t0029
-  - prompthound.tier.t1
+modified: 2026-09-26
+license: DRL-1.1
+logsource:
+    product: llm_gateway
+detection:
+    selection:
+        gen_ai.operation.name:
+            - 'chat'
+            - 'text_completion'
+            - 'generate_content'
+        gen_ai.response.finish_reasons: 'length'
+    condition: selection
+---
+title: Repeated Length-Truncated Completions in One Conversation
+id: daea5beb-53d3-4ed6-bdce-cc642ed1f989
+status: experimental
+description: |
+    Detects five or more completions that hit their output-token limit within one
+    conversation in a fixed 5-minute window. An agent or auto-continue loop that keeps
+    exhausting its output budget without converging burns tokens on every turn. Legitimate
+    long-form generation also produces this pattern, so treat it as a hunting signal.
+references:
+    - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
+    - https://atlas.mitre.org/techniques/AML.T0034
+author: PromptHound contributors
+date: 2026-06-04
+modified: 2026-09-26
+license: DRL-1.1
 correlation:
-  type: event_count
-  rules:
-    - length_truncated_completion
-  group-by:
-    - user.tenant.id
-    - gen_ai.conversation.id
-  timespan: 5m
-  condition:
-    gte: 5
+    type: event_count
+    rules:
+        - length_truncated_completion
+    group-by:
+        - user.tenant.id
+        - gen_ai.conversation.id
+    timespan: 5m
+    condition:
+        gte: 5
 falsepositives:
-  - Legitimate long-form streaming where the client deliberately continues past
-    the cap a few times (raise the threshold or scope by app.name).
-  - Summarization/translation of very large documents chunked across several
-    capped turns in one conversation.
-level: medium
+    - Clients that deliberately continue long outputs across several capped turns.
+    - Summarization or translation of large documents split into capped chunks.
+level: low
+prompthound:
+    owasp_llm: [LLM10]
+    atlas: [AML.T0034]

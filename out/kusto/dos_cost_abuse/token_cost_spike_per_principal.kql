@@ -1,6 +1,0 @@
-PromptHoundAuditLog_CL
-| where (event_action in~ ("chat", "text_completion")) and gen_ai_usage_total_tokens >= 8000
-| where isnotempty(user_tenant_id) and isnotempty(user_id)
-// Fixed UTC buckets; bursts crossing a bucket boundary can be missed.
-| summarize event_count = count() by user_tenant_id, user_id, bin(timestamp, 300s)
-| where event_count >= 10

@@ -1,0 +1,1 @@
+`prompthound_audit` content_input_injection_markers>=1 gen_ai_input_messages IN ("*system prompt*", "*system instructions*", "*initial instructions*", "*reveal your instructions*", "*repeat the words above*", "*print your system prompt*")

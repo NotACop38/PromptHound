@@ -1,2 +1,0 @@
-PromptHoundAuditLog_CL
-| where content_output_contains_system_prompt == true or (gen_ai_output_messages contains "you are a helpful assistant" or gen_ai_output_messages contains "my system prompt" or gen_ai_output_messages contains "my system instructions" or gen_ai_output_messages contains "my initial instructions" or gen_ai_output_messages contains "here are my instructions" or gen_ai_output_messages contains "the system prompt is" or gen_ai_output_messages contains "my instructions are" or gen_ai_output_messages contains "i was instructed to")

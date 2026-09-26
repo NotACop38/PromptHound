@@ -1,0 +1,6 @@
+PromptHoundAuditLog_CL
+| where (gen_ai_operation_name in~ ("execute_tool", "invoke_agent")) and tool_call_outcome =~ "denied"
+| where isnotempty(user_tenant_id) and isnotempty(gen_ai_conversation_id)
+// Fixed 5m UTC windows: a burst that straddles a window boundary is split.
+| summarize event_count = count() by user_tenant_id, gen_ai_conversation_id, bin(timestamp, 5m)
+| where event_count >= 3

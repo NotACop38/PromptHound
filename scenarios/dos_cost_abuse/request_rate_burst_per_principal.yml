@@ -1,0 +1,40 @@
+cases:
+  - name: Twenty requests in one minute
+    expect: alert
+    alerts: 1
+    events:
+      - repeat: 20
+        interval: 2s
+
+  - name: Generate-content requests are counted
+    expect: alert
+    events:
+      - set:
+          gen_ai.operation.name: generate_content
+        repeat: 20
+        interval: 2s
+
+  - name: Nineteen requests stay below the threshold
+    expect: silent
+    events:
+      - repeat: 19
+        interval: 2s
+
+  - name: A burst split across two one-minute windows
+    expect: silent
+    events:
+      - at: 50s
+        repeat: 20
+        interval: 1s
+
+  - name: Requests split across two principals
+    expect: silent
+    events:
+      - set:
+          user.id: user-rate-a
+        repeat: 12
+        interval: 2s
+      - set:
+          user.id: user-rate-b
+        repeat: 12
+        interval: 2s

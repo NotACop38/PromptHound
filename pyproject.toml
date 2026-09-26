@@ -1,94 +1,153 @@
 [build-system]
-requires = ["setuptools==84.0.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
 
 [project]
 name = "prompthound"
-version = "0.2.0"
-description = "Open-source, defensive SIEM detection library for attacks against LLM apps and AI agents."
+dynamic = ["version"]
+description = "Sigma detection rules for LLM applications and AI agents, with verified Splunk and Microsoft Sentinel queries and an offline test harness."
 readme = "README.md"
 requires-python = ">=3.11"
-# Dual-licensed per decision D7 (PRD §9). The distributed package is code only
-# (prompthound + pipelines; see [tool.setuptools] below) and is Apache-2.0. The
-# detection content under rules/ — not packaged into the wheel — is DRL 1.1.
-# See LICENSE, LICENSE-RULES, and NOTICE.
-license = { text = "Apache-2.0" }
+license = "Apache-2.0 AND DRL-1.1"
+license-files = ["LICENSE", "LICENSE-RULES", "NOTICE"]
 authors = [{ name = "PromptHound contributors" }]
 keywords = [
-  "siem",
   "sigma",
   "detection-engineering",
-  "llm-security",
-  "owasp-llm",
-  "mitre-atlas",
+  "siem",
   "splunk",
-  "sentinel",
+  "microsoft-sentinel",
+  "kql",
+  "llm-security",
+  "ai-agents",
+  "mitre-atlas",
+  "owasp",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
+  "Environment :: Console",
   "Intended Audience :: Information Technology",
-  "License :: OSI Approved :: Apache Software License",
+  "Intended Audience :: System Administrators",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Security",
+  "Typing :: Typed",
 ]
-
-# Runtime dependencies (PRD §13). Exact versions are pinned in requirements.lock;
-# a bump there is a reviewed change with full SPL/KQL regeneration (PRD §17).
-# NOTE: there is deliberately NO `pysigma-backend-sentinel` — it does not exist
-# (PRD D5); Sentinel KQL comes from `pysigma-backend-kusto`.
 dependencies = [
-  "pysigma>=1.0.0",
-  "pysigma-backend-splunk>=1.0.0",
-  "pysigma-backend-kusto>=1.0.0",
-  "jinja2>=3.1",
-  "pyyaml>=6.0",
+  "pysigma>=1.5,<2",
+  "pysigma-backend-splunk>=2.1,<3",
+  "pysigma-backend-kusto>=1.0.1,<2",
+  "pyyaml>=6.0.1",
 ]
 
-[project.optional-dependencies]
-cli = ["sigma-cli>=1.0.0"]
-dev = ["ruff>=0.5", "mypy>=1.8", "pytest>=8.0"]
-# Tools the CI security stage shells out to (PRD §8 P1-P4, §17). Kept separate
-# from `dev` so the supply-chain audit + SAST + secrets scan are an explicit,
-# installable surface: `pip install -e .[security]`.
-security = ["pip-audit>=2.7", "bandit>=1.7"]
+[project.scripts]
+prompthound = "prompthound.cli:main"
 
 [project.urls]
-Documentation = "https://github.com/notacop38/prompthound/blob/main/docs/PRD.md"
-Source = "https://github.com/notacop38/prompthound"
+Homepage = "https://github.com/NotACop38/PromptHound"
+Documentation = "https://github.com/NotACop38/PromptHound/tree/main/docs"
+Issues = "https://github.com/NotACop38/PromptHound/issues"
+Changelog = "https://github.com/NotACop38/PromptHound/blob/main/CHANGELOG.md"
 
-# The importable library package plus the pySigma pipelines it drives are
-# distributed (prompthound.convert imports pipelines.*); rules/, generator/, etc.
-# remain operational content directories (PRD §14), not part of the wheel.
-[tool.setuptools]
-packages = ["prompthound", "pipelines"]
+[dependency-groups]
+dev = [
+  "bandit>=1.9",
+  "mypy>=2.3",
+  "pip-audit>=2.10",
+  "pytest>=9.1",
+  "pytest-cov>=7.1",
+  "ruff>=0.16",
+  "types-PyYAML>=6.0",
+]
 
-[tool.setuptools.package-data]
-prompthound = ["py.typed", "*.schema.json"]
+[tool.hatch.version]
+path = "src/prompthound/__init__.py"
+
+# The wheel bundles the rule pack and its scenarios inside the package. Editable
+# installs read them from the checkout instead (see prompthound.resources).
+[tool.hatch.build.targets.wheel]
+only-include = ["src/prompthound", "rules", "scenarios"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+"rules" = "prompthound/_bundled/rules"
+"scenarios" = "prompthound/_bundled/scenarios"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/rules",
+  "/scenarios",
+  "/queries",
+  "/docs",
+  "/tests",
+  "/scripts",
+  "/CHANGELOG.md",
+  "/CONTRIBUTING.md",
+  "/SECURITY.md",
+  "/Makefile",
+  "/requirements.lock",
+  "/requirements-dev.lock",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+src = [".", "src"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP", "B"]
+select = [
+  "E",
+  "W",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "C4",
+  "SIM",
+  "PIE",
+  "PT",
+  "RET",
+  "PTH",
+  "RUF",
+  "S",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert by design and build throwaway files from literals.
+"tests/**" = ["S101", "S108"]
 
 [tool.mypy]
 python_version = "3.11"
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-disallow_untyped_defs = true
-no_implicit_optional = true
-
-# pySigma and its backends do not ship type stubs; treat their imports as
-# untyped rather than failing the mypy stage (PRD §13 dependencies).
-[[tool.mypy.overrides]]
-module = ["sigma.*"]
-ignore_missing_imports = true
+strict = true
+warn_unreachable = true
+files = ["src", "scripts", "tests"]
+# Scripts and tests are imported as `scripts.*` and `tests.*` from the repository root.
+mypy_path = ["src", "."]
+explicit_package_bases = true
 
 [tool.pytest.ini_options]
-minversion = "8.0"
-addopts = "-ra"
+minversion = "9.0"
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+markers = [
+  "siem: requires live Splunk and Kusto test endpoints (see docs/verification.md)",
+]
+
+[tool.coverage.run]
+source = ["prompthound"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = true
+exclude_also = ["if __name__ == .__main__.:"]

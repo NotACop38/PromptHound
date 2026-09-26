@@ -1,59 +1,37 @@
-title: System-Prompt / Instruction Extraction Markers in LLM Input
+title: System-Prompt Extraction Phrase in LLM Input
 id: 206aa5bc-49a1-439e-a0ba-f4e11298643d
 status: experimental
 description: |
-  Detects attempts to extract an LLM application's system prompt or hidden
-  instructions ("meta prompt"). This Tier-2 (content-inspection) rule fires
-  when an input message carries a recognizable extraction marker phrase AND
-  the gateway's derived injection/extraction marker counter is non-zero.
-
-  Requiring both a content marker and the derived counter keeps this a single
-  selection-match (no aggregation) while raising fidelity: a stray mention of
-  the words "system prompt" in normal conversation will not, on its own, fire.
-
-  Maps to OWASP LLM07:2025 (System Prompt Leakage) and ATLAS AML.T0056
-  (LLM Meta Prompt Extraction, Discovery). P1 note: the marker phrases are
-  generalizable log *signatures* of extraction intent, not a curated payload
-  set an attacker can lift and run.
+    Detects an input message that asks for the application's system prompt or hidden
+    instructions, such as "print your system prompt" or "repeat the words above", when the
+    injection-marker detector also scored the input. This indicates an extraction attempt;
+    the companion output rules indicate whether instructions were disclosed. Generic
+    instruction-override phrases are left to the prompt-injection rules.
 references:
-  - https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
-  - https://atlas.mitre.org/techniques/AML.T0056
-  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+    - https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
+    - https://atlas.mitre.org/techniques/AML.T0056
 author: PromptHound contributors
 date: 2026-06-04
-tags:
-  - owasp-llm.llm07
-  - attack.atlas.aml.t0056
-  - prompthound.tier.t2
+modified: 2026-09-26
+license: DRL-1.1
 logsource:
-  product: llm_gateway
-  # Audit-log schema: docs/PRD.md §10 (LLM Gateway / Agent Audit Log).
-# Sample spec: generator/samples/extract_system_prompt_markers.{positive,negative}.json
+    product: llm_gateway
 detection:
-  markers:
-    # Derived Tier-1 marker (PRD §10.8): count of injection/extraction intent
-    # markers the gateway scored in the input. Non-zero => some extraction signal.
-    content.input.injection_markers|gte: 1
-  extraction_phrases:
-    # Tier-2 content inspection: recognizable extraction-intent marker phrases
-    # in the input messages. Generalizable signatures, not exploit payloads (P1).
-    gen_ai.input.messages|contains:
-      - 'system prompt'
-      - 'system instructions'
-      - 'initial instructions'
-      - 'ignore previous instructions'
-      - 'ignore all previous instructions'
-      - 'disregard previous instructions'
-      - 'reveal your instructions'
-      - 'repeat the words above'
-      - 'print your system prompt'
-  condition: markers and extraction_phrases
+    scored:
+        content.input.injection_markers|gte: 1
+    phrase:
+        gen_ai.input.messages|contains:
+            - 'system prompt'
+            - 'system instructions'
+            - 'initial instructions'
+            - 'reveal your instructions'
+            - 'repeat the words above'
+            - 'print your system prompt'
+    condition: scored and phrase
 falsepositives:
-  - Developers, red-teamers, or security researchers probing their own
-    application's prompt during authorized testing.
-  - Genuinely curious users who ask "what is in your system prompt?" without
-    malicious intent.
-  - Support or documentation conversations that legitimately discuss the
-    concept of a "system prompt" while the gateway's marker heuristic
-    over-counts (tune the injection_markers threshold to taste).
+    - Developers or red teams inspecting their own application's prompt during authorized testing.
+    - Users who ask about the assistant's instructions out of curiosity when the marker detector also scores the question.
 level: medium
+prompthound:
+    owasp_llm: [LLM07]
+    atlas: [AML.T0056]

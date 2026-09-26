@@ -1,0 +1,4 @@
+`prompthound_audit` gen_ai_operation_name IN ("execute_tool", "invoke_agent") tool_call_outcome="denied"
+| bin _time span=5m
+| stats count as event_count by _time user_tenant_id gen_ai_conversation_id
+| search event_count >= 3

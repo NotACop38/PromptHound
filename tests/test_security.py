@@ -1,123 +1,137 @@
-"""Security-stage tests (PRD §8 P1–P4, §17).
-
-Cover the units behind ``python scripts/ci.py --only security``:
-
-  * the secrets scanner finds planted credentials, stays clean on this repo, and
-    honours both the inline allowlist marker and the known-example exemption;
-  * the supply-chain ignore-list is documented (no silent suppression);
-  * the bandit scan targets resolve to real first-party source trees.
-
-The pip-audit / bandit *executions* themselves are exercised by running the
-stage; here we test the configuration and the first-party scanner logic so the
-suite stays fast and offline. Run just these with ``pytest -k security -q``.
-"""
-
 from __future__ import annotations
 
+import json
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
-from scripts.security import (
-    BANDIT_TARGETS,
-    IGNORED_VULNS,
-    KNOWN_EXAMPLES,
-    scan_for_secrets,
-    scan_text,
-)
+import pytest
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+from scripts import security
+from tests.helpers import ROOT
 
-
-# --- secrets scanner ----------------------------------------------------------
-
-
-def test_security_repo_has_no_committed_secrets() -> None:
-    findings = scan_for_secrets(REPO_ROOT)
-    assert findings == [], f"committed secrets found in tracked files: {findings}"
+# Credential-shaped values are assembled at run time; see test_payload_guard.py.
+KEYS = {
+    "aws-access-key": "AKIA" + "B" * 16,
+    "provider-api-key": "sk-ant-" + "x1Y2" * 6,
+    "github-token": "ghp_" + "a" * 36,
+    "github-fine-grained-pat": "github_pat_" + "A" * 22,
+    "slack-token": "xoxb-" + "1234567890-abc",
+    "google-api-key": "AIza" + "C" * 35,
+}
+HEADER = "-----BEGIN " + "PRIVATE KEY-----"
 
 
-def test_security_secrets_scan_flags_aws_key() -> None:
-    # Split so this source line carries no committed secret; recombined at runtime.
-    findings = scan_text("config.py", "AWS_KEY = '" + "AKIA" + "1234567890ABCDEF'\n")
-    assert [f.kind for f in findings] == ["aws-access-key"]
-    assert findings[0].line == 1
+@pytest.mark.parametrize(("kind", "value"), KEYS.items(), ids=list(KEYS))
+def test_credential_shapes_are_found_without_their_values(kind: str, value: str) -> None:
+    findings = security.scan_text("config.env", f"token = {value}\n")
+    assert findings == [security.SecretFinding("config.env", 1, kind)]
+    assert value not in repr(findings)
 
 
-def test_security_secrets_scan_flags_provider_and_token_shapes() -> None:
-    # Token literals are split so this source line itself carries no committed
-    # secret (the repo-wide scan walks this very file); they recombine at runtime.
-    samples = {
-        "openai-api-key": "key = 'sk-" + "abcdefghijklmnopqrstuvwxyz0123'",
-        "github-token": "tok = 'ghp_" + "a" * 36 + "'",
-        "github-fine-grained-pat": "pat = 'github_pat_" + "A1b2C3d4E5f6G7h8I9j0K1'",
-        "slack-token": "s = 'xoxb-" + "123456789012-abcdefghijkl'",
-    }
-    for expected_kind, line in samples.items():
-        kinds = [f.kind for f in scan_text("f.py", line)]
-        assert expected_kind in kinds, f"{expected_kind} not detected in {line!r}"
+def test_allowlisted_lines_and_documented_examples_are_ignored() -> None:
+    text = (
+        f"key = {KEYS['aws-access-key']}  # {security.ALLOWLIST_MARKER}\n"
+        "example = AKIAIOSFODNN7EXAMPLE\n"
+    )
+    assert security.scan_text("docs.md", text) == []
 
 
-def test_security_secrets_scan_finds_real_key_after_example() -> None:
-    # A known-example value early on a line must not mask a real key later on it.
-    line = "AKIAIOSFODNN7EXAMPLE then a real " + "AKIA" + "1234567890ABCDEF"
-    kinds = [f.kind for f in scan_text("x.py", line)]
-    assert kinds == ["aws-access-key"], f"real key after example was masked: {kinds}"
+def test_private_key_blocks_need_a_body() -> None:
+    block = f"{HEADER}\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n"
+    assert security.scan_text("key.pem", "intro\n" + block) == [
+        security.SecretFinding("key.pem", 2, "private-key-block")
+    ]
+    assert security.scan_text("guard.py", f'"{HEADER}"\n') == []
+    marked = f"# {security.ALLOWLIST_MARKER}\n{block}"
+    assert security.scan_text("fixture.pem", marked) == []
 
 
-def test_security_secrets_scan_flags_private_key_block() -> None:
-    pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAK...\n-----END RSA PRIVATE KEY-----\n"
-    findings = scan_text("id_rsa", pem)
-    assert [f.kind for f in findings] == ["private-key-block"]
+def test_the_repository_has_no_credentials() -> None:
+    assert security.scan_repository(ROOT) == []
 
 
-def test_security_secrets_scan_ignores_bare_private_key_header() -> None:
-    # A header with no key body (as in the P1-guard unit test) is not a secret.
-    assert scan_text("t.py", "'-----BEGIN RSA PRIVATE KEY-----'\n") == []
+def test_the_scan_needs_git(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    with pytest.raises(RuntimeError, match="needs git"):
+        security.scan_repository(ROOT)
 
 
-def test_security_secrets_scan_honours_allowlist_marker() -> None:
-    line = "AWS_KEY = 'AKIA1234567890ABCDEF'  # pragma: allowlist secret\n"
-    assert scan_text("config.py", line) == []
+def test_missing_tools_fail_their_check(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    assert security.bandit() is False
+    assert "bandit is not installed" in capsys.readouterr().out
 
 
-def test_security_secrets_scan_honours_marker_before_key_block() -> None:
-    # A pragma comment naturally sits on the line *above* a PEM header; the
-    # multiline scan must honour it there as well as on the header line itself.
-    pem_body = "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAK...\n"
-    marked_above = "# test fixture, pragma: allowlist secret\n" + pem_body
-    assert scan_text("fixture.py", marked_above) == []
-    marked_on_header = pem_body.replace("KEY-----\n", "KEY-----  # pragma: allowlist secret\n", 1)
-    assert scan_text("fixture.py", marked_on_header) == []
-    # And with no marker anywhere, the block is still flagged.
-    assert [f.kind for f in scan_text("id_rsa", pem_body)] == ["private-key-block"]
+def test_pip_audit_ignores_only_accepted_advisories(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def run(tool: str, *args: str) -> bool:
+        calls.append((tool, *args))
+        return True
+
+    monkeypatch.setattr(security, "_run", run)
+    assert security.pip_audit()
+    [call] = calls
+    assert call[:6] == (
+        "pip-audit", "--require-hashes", "-r", "requirements.lock", "-r", "requirements-dev.lock"
+    )  # fmt: skip
+    ignored = [call[i + 1] for i, arg in enumerate(call) if arg == "--ignore-vuln"]
+    assert ignored == list(security.ACCEPTED_ADVISORIES)
 
 
-def test_security_secrets_scan_allows_known_example() -> None:
-    assert "AKIAIOSFODNN7EXAMPLE" in KNOWN_EXAMPLES
-    assert scan_text("doc.md", "example key AKIAIOSFODNN7EXAMPLE in the docs\n") == []
+def test_every_accepted_advisory_is_justified() -> None:
+    for advisory, reason in security.ACCEPTED_ADVISORIES.items():
+        assert advisory.startswith(("CVE-", "GHSA-", "PYSEC-"))
+        assert len(reason) > 80
 
 
-# --- supply-chain ignore-list -------------------------------------------------
+@pytest.mark.parametrize("failing", ["pip_audit", "bandit", "secrets"])
+def test_any_failing_check_fails_the_run(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], failing: str
+) -> None:
+    for name in ("pip_audit", "bandit", "secrets"):
+        monkeypatch.setattr(security, name, lambda name=name: name != failing)
+    assert security.main() == 1
+    assert "FAILED" in capsys.readouterr().out
 
 
-def test_security_ignored_vulns_are_documented() -> None:
-    # Every accepted advisory must carry a justification — no silent suppression.
-    for cve, why in IGNORED_VULNS.items():
-        assert cve.startswith(("CVE-", "GHSA-", "PYSEC-")), f"unexpected advisory id: {cve}"
-        assert isinstance(why, str) and len(why.strip()) >= 20, f"{cve} needs a real reason"
+def test_secrets_check_reports_findings(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    finding = security.SecretFinding("a.txt", 3, "slack-token")
+    monkeypatch.setattr(security, "scan_repository", lambda: [finding])
+    assert security.secrets() is False
+    assert "a.txt:3: possible slack-token" in capsys.readouterr().out
+    monkeypatch.setattr(security, "scan_repository", list)
+    assert security.secrets() is True
 
 
-# --- bandit targets -----------------------------------------------------------
-
-
-def test_security_bandit_targets_resolve() -> None:
-    present = [t for t in BANDIT_TARGETS if (REPO_ROOT / t).is_dir()]
-    assert present, "no bandit scan targets resolve to directories"
-    assert "prompthound" in present and "scripts" in present
-
-
-def test_security_redacts_modern_provider_tokens():
-    for prefix in ["sk-proj-", "sk-svcacct-", "sk-ant-api03-"]:
-        secret = prefix + "a" * 30 + "_" + "b" * 30
-        [finding] = scan_text("config", "key=" + secret)
-        assert secret not in finding.excerpt
-        assert finding.kind == "openai-api-key"
+def test_pysigma_mitre_caches_are_never_opened(tmp_path: Path) -> None:
+    """The justification for accepting CVE-2025-69872 (diskcache) depends on this."""
+    code = """
+import json, sys
+from prompthound import convert, evaluate, generator, rules, scenarios
+pack = rules.load_rules()
+assert rules.check_policy(pack) == []
+for rule in pack:
+    convert.convert(rule)
+dataset = generator.build_dataset(scenarios.load_scenarios(pack))
+evaluate.evaluate(pack, dataset.events)
+caches = {}
+for name in ("sigma.data.mitre_attack", "sigma.data.mitre_d3fend"):
+    module = sys.modules.get(name)
+    caches[name] = None if module is None else repr(module._cache)
+print(json.dumps(caches))
+"""
+    env = {**os.environ, "HOME": str(tmp_path), "XDG_CACHE_HOME": str(tmp_path / "cache")}
+    process = subprocess.run(  # noqa: S603 - runs this test's own code
+        [sys.executable, "-c", code], env=env, cwd=ROOT, capture_output=True, text=True, check=True
+    )
+    caches = json.loads(process.stdout)
+    assert set(caches.values()) <= {None, "None"}
+    assert not (tmp_path / ".cache" / "pysigma").exists()

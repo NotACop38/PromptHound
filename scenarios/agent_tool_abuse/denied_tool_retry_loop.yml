@@ -1,0 +1,74 @@
+x-denied-call: &denied-call
+  gen_ai.operation.name: execute_tool
+  event.outcome: blocked
+  policy.decision: block
+  gen_ai.tool.name: secrets.get
+  tool.call.chain: [secrets.get]
+  tool.call.outcome: denied
+
+cases:
+  - name: Three denied calls in one conversation
+    expect: alert
+    alerts: 1
+    events:
+      - set: *denied-call
+        repeat: 3
+        interval: 60s
+
+  - name: Denied sub-agent invocations are counted
+    expect: alert
+    events:
+      - set:
+          <<: *denied-call
+          gen_ai.operation.name: invoke_agent
+        repeat: 3
+        interval: 30s
+
+  - name: Two denied calls stay below the threshold
+    expect: silent
+    events:
+      - set: *denied-call
+        repeat: 2
+        interval: 60s
+
+  - name: Successful tool calls are not counted
+    expect: silent
+    events:
+      - set:
+          <<: *denied-call
+          event.outcome: success
+          policy.decision: allow
+          tool.call.outcome: success
+        repeat: 5
+        interval: 30s
+
+  - name: Denials in two tenants sharing a conversation ID do not pool
+    expect: silent
+    events:
+      - set:
+          <<: *denied-call
+          user.tenant.id: tenant-a
+          gen_ai.conversation.id: conv-shared
+        repeat: 2
+        interval: 30s
+      - set:
+          <<: *denied-call
+          user.tenant.id: tenant-b
+          gen_ai.conversation.id: conv-shared
+        interval: 30s
+
+  - name: Denials split across two five-minute windows
+    expect: silent
+    events:
+      - at: 4m
+        set: *denied-call
+        repeat: 3
+        interval: 30s
+
+  - name: Denials without a tenant are not counted
+    expect: silent
+    events:
+      - set: *denied-call
+        unset: [user.tenant.id]
+        repeat: 3
+        interval: 30s

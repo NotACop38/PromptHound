@@ -1,194 +1,105 @@
-"""Unit tests for the shared windowed correlation evaluator (prompthound.correlate).
-
-The per-rule suites (test_dos_cost_abuse.py, test_jailbreak.py, ...) prove the
-shipped correlations fire/stay silent on their samples; these tests pin the
-*evaluator's own semantics* on a minimal synthetic rule: threshold boundaries,
-fixed UTC buckets, group isolation, the fail-loud contract for
-unsupported correlation shapes, and the selection/correlation file dispatch.
-
-Run just these with ``pytest -k correlate -q``.
-"""
-
 from __future__ import annotations
 
-from pathlib import Path
+import datetime as dt
+from typing import Any
 
 import pytest
 
-from prompthound.correlate import (
-    CorrelationAlert,
-    correlation_hits,
-    evaluate_rule_file,
-    is_correlation_file,
-    load_correlation_file,
+from prompthound.correlate import Correlation, Window, evaluate, window_start
+
+CHAT = Correlation(
+    group_by=("user.tenant.id", "user.id"), timespan=300, operator="gte", threshold=3
 )
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# A minimal correlation: >= 3 chat events per user.id inside 5 minutes.
-CORRELATION_RULE = """\
-title: Chat burst building block
-name: chat_event
-id: 0b0d35f5-6f5c-4a52-9fc6-3b0f5f3e9d01
-status: experimental
-description: test base rule
-author: PromptHound tests
-date: 2026-06-11
-logsource:
-  product: llm_gateway
-detection:
-  sel:
-    event.action: chat
-  condition: sel
-falsepositives:
-  - none
-level: low
----
-title: Chat burst per principal
-id: 0b0d35f5-6f5c-4a52-9fc6-3b0f5f3e9d02
-status: experimental
-description: test correlation
-author: PromptHound tests
-date: 2026-06-11
-correlation:
-  type: event_count
-  rules:
-    - chat_event
-  group-by:
-    - user.id
-  timespan: 5m
-  condition:
-    gte: 3
-falsepositives:
-  - none
-level: medium
-"""
+def is_chat(event: Any) -> bool:
+    return bool(event.get("gen_ai.operation.name") == "chat")
 
 
-@pytest.fixture
-def rule_file(tmp_path: Path) -> Path:
-    path = tmp_path / "chat_burst.yml"
-    path.write_text(CORRELATION_RULE, encoding="utf-8")
-    return path
-
-
-def _event(minute: float, user: str = "u-1", action: str = "chat") -> dict:
-    whole = int(minute)
-    seconds = round((minute - whole) * 60)
+def event(clock: str, user: str = "u1", tenant: str = "t1", ident: str = "") -> dict[str, Any]:
     return {
-        "timestamp": f"2026-06-11T12:{whole:02d}:{seconds:02d}Z",
-        "event.action": action,
+        "timestamp": f"2026-06-01T{clock}Z",
+        "event.id": ident or f"{user}-{clock}",
+        "gen_ai.operation.name": "chat",
+        "user.tenant.id": tenant,
         "user.id": user,
     }
 
 
-# --- threshold and window semantics ---------------------------------------------
+def test_windows_are_fixed_and_aligned_to_the_epoch() -> None:
+    moment = dt.datetime(2026, 6, 1, 12, 7, 31, tzinfo=dt.UTC)
+    assert window_start(moment, 300) == dt.datetime(2026, 6, 1, 12, 5, tzinfo=dt.UTC)
+    assert window_start(moment, 3600) == dt.datetime(2026, 6, 1, 12, 0, tzinfo=dt.UTC)
 
 
-def test_correlate_fires_at_exact_threshold(rule_file: Path) -> None:
-    events = [_event(0), _event(1), _event(2)]
-    assert correlation_hits(rule_file, events) == [(("u-1",), 3)]
-
-
-def test_correlate_silent_one_under_threshold(rule_file: Path) -> None:
-    assert correlation_hits(rule_file, [_event(0), _event(1)]) == []
-
-
-def test_correlate_window_is_fixed_and_half_open(rule_file: Path) -> None:
-    # Three matches spread over 8 minutes: no 5-minute window anchored at a
-    # match holds all three, so the correlation must stay silent.
-    spread = [_event(0), _event(4), _event(8)]
-    assert correlation_hits(rule_file, spread) == []
-    # The window is [start, start + span): an event exactly at start + 5m falls
-    # outside the first anchor but a later anchor can still catch a burst.
-    edge = [_event(0), _event(1), _event(5)]
-    assert correlation_hits(rule_file, edge) == []
-    caught_later = [_event(0), _event(4), _event(4.5), _event(5)]
-    assert correlation_hits(rule_file, caught_later) == [(("u-1",), 3)]
-
-
-def test_correlate_groups_are_isolated(rule_file: Path) -> None:
-    # Two users with two events each: the global count crosses the threshold
-    # but no single group does, so nothing fires.
-    interleaved = [_event(0, "u-a"), _event(0.5, "u-b"), _event(1, "u-a"), _event(1.5, "u-b")]
-    assert correlation_hits(rule_file, interleaved) == []
-    # One user crossing the threshold alerts once, for that group only.
-    burst = interleaved + [_event(2, "u-a")]
-    assert correlation_hits(rule_file, burst) == [(("u-a",), 3)]
-
-
-def test_correlate_base_detection_filters_events(rule_file: Path) -> None:
-    # Non-matching events (action != chat) never count toward the window.
-    events = [_event(0), _event(1), _event(2, action="execute_tool")]
-    assert correlation_hits(rule_file, events) == []
-
-
-def test_correlate_day_scale_timespans_keep_their_full_span(tmp_path: Path) -> None:
-    # pySigma's SigmaCorrelationTimespan.seconds is the TOTAL span (1d -> 86400),
-    # so day-scale windows must work at full width — this pins that a `1d`
-    # window is not truncated modulo a day (e.g. to 0 seconds).
-    path = tmp_path / "daily_burst.yml"
-    path.write_text(CORRELATION_RULE.replace("timespan: 5m", "timespan: 1d"), encoding="utf-8")
-
-    def at(hour: int) -> dict:
-        day, hh = divmod(hour, 24)
-        return {
-            "timestamp": f"2026-06-{11 + day:02d}T{hh:02d}:00:00Z",
-            "event.action": "chat",
-            "user.id": "u-1",
-        }
-
-    # Three matches over 20 hours: inside one 24h window -> fires.
-    assert correlation_hits(path, [at(0), at(10), at(20)]) == [(("u-1",), 3)]
-    # Three matches spread over 26 hours, max 2 per 24h window -> silent.
-    assert correlation_hits(path, [at(0), at(13), at(26)]) == []
-
-
-def test_correlate_alert_is_tuple_compatible(rule_file: Path) -> None:
-    [alert] = correlation_hits(rule_file, [_event(0), _event(1), _event(2)])
-    assert isinstance(alert, CorrelationAlert)
-    assert alert.group == ("u-1",)
-    assert alert.event_count == 3
-    assert alert == (("u-1",), 3)  # plain-tuple expectations keep working
-
-
-# --- fail-loud contract ----------------------------------------------------------
-
-
-def test_correlate_rejects_event_without_timestamp(rule_file: Path) -> None:
-    with pytest.raises(ValueError, match="timestamp"):
-        correlation_hits(rule_file, [{"event.action": "chat", "user.id": "u-1"}] * 3)
-
-
-def test_correlate_load_rejects_plain_rule_file() -> None:
-    plain = REPO_ROOT / "rules" / "dos_cost_abuse" / "oversized_max_tokens.yml"
-    with pytest.raises(ValueError, match="one base rule"):
-        load_correlation_file(plain)
-
-
-# --- file dispatch ----------------------------------------------------------------
-
-
-def test_correlate_detects_file_shape(rule_file: Path) -> None:
-    assert is_correlation_file(rule_file)
-    assert not is_correlation_file(
-        REPO_ROOT / "rules" / "insecure_output" / "unsanitized_output_to_sink.yml"
-    )
-
-
-def test_correlate_evaluate_rule_file_counts_alerts(rule_file: Path) -> None:
-    events = [_event(0), _event(1), _event(2), _event(0, "u-2")]
-    result = evaluate_rule_file(rule_file, events)
-    assert result.is_correlation
-    assert result.hits == 1  # one alerting group, not four matching events
-
-
-def test_correlate_evaluate_rule_file_counts_selection_matches() -> None:
-    rule = REPO_ROOT / "rules" / "dos_cost_abuse" / "oversized_max_tokens.yml"
-    events = [
-        {"event.action": "chat", "gen_ai.request.max_tokens": 200000},
-        {"event.action": "chat", "gen_ai.request.max_tokens": 4096},
+def test_threshold_is_counted_per_window() -> None:
+    events = [event("12:00:00"), event("12:01:00"), event("12:04:59")]
+    assert evaluate(CHAT, is_chat, events) == [
+        Window(
+            group=("t1", "u1"),
+            start=dt.datetime(2026, 6, 1, 12, 0, tzinfo=dt.UTC),
+            count=3,
+            event_ids=("u1-12:00:00", "u1-12:01:00", "u1-12:04:59"),
+        )
     ]
-    result = evaluate_rule_file(rule, events)
-    assert not result.is_correlation
-    assert result.hits == 1
+
+
+def test_a_burst_across_a_window_boundary_is_split() -> None:
+    events = [event("12:04:00"), event("12:04:30"), event("12:05:00"), event("12:05:30")]
+    assert evaluate(CHAT, is_chat, events) == []
+
+
+def test_every_qualifying_window_is_reported() -> None:
+    events = [event(f"12:0{m}:00") for m in (0, 1, 2)] + [event(f"12:1{m}:00") for m in (0, 1, 2)]
+    windows = evaluate(CHAT, is_chat, events)
+    assert [w.start.minute for w in windows] == [0, 10]
+
+
+def test_groups_and_tenants_do_not_pool() -> None:
+    events = [
+        event("12:00:00", tenant="a"),
+        event("12:00:10", tenant="a"),
+        event("12:00:20", tenant="b"),
+    ]
+    assert evaluate(CHAT, is_chat, events) == []
+
+
+@pytest.mark.parametrize("missing", [None, "", ["u1"], {"id": 1}])
+def test_events_without_a_usable_group_value_are_not_counted(missing: Any) -> None:
+    events = [event("12:00:00"), event("12:00:10"), {**event("12:00:20"), "user.id": missing}]
+    assert evaluate(CHAT, is_chat, events) == []
+
+
+def test_non_matching_events_are_not_counted() -> None:
+    events = [
+        event("12:00:00"),
+        event("12:00:10"),
+        {**event("12:00:20"), "gen_ai.operation.name": "embeddings"},
+    ]
+    assert evaluate(CHAT, is_chat, events) == []
+
+
+@pytest.mark.parametrize(
+    ("operator", "threshold", "count", "expected"),
+    [("gte", 3, 3, True), ("gt", 3, 3, False), ("lte", 1, 1, True), ("lt", 2, 2, False)],
+)
+def test_operators(operator: str, threshold: int, count: int, expected: bool) -> None:
+    correlation = Correlation(("user.id",), 300, operator, threshold)
+    events = [event(f"12:00:0{i}") for i in range(count)]
+    assert bool(evaluate(correlation, is_chat, events)) is expected
+
+
+def test_results_are_ordered_by_window_then_group() -> None:
+    events = (
+        [event("12:10:00", user="b")] * 3
+        + [event("12:10:00", user="a")] * 3
+        + [event("12:00:00", user="z")] * 3
+    )
+    windows = evaluate(CHAT, is_chat, events)
+    assert [(w.start.minute, w.group[1]) for w in windows] == [(0, "z"), (10, "a"), (10, "b")]
+
+
+def test_correlation_properties() -> None:
+    assert CHAT.symbol == ">="
+    assert CHAT.satisfied_by(3)
+    assert not CHAT.satisfied_by(2)

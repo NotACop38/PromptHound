@@ -1,63 +1,39 @@
-# PromptHound — Insecure output handling detection.
-# PRD §11 rule #8 (LLM05 Improper Output Handling). Tier-1, single selection
-# match: keys only on the always-on output-handling metadata
-# (output.rendered_unsanitized + output.sink, PRD §10.6). No prompt/response
-# content required — privacy-friendly (PRD §8 P4).
-#
-# One behaviour: model output reaching a code/command/markup execution sink
-# without sanitization. This is the LLM05 primitive behind real RCE/SQLi/XSS
-# chains (e.g. CurXecute, PRD §11 anchors) — the LLM's output is treated as
-# trusted by a downstream interpreter.
-#
-# Mapping note (PRD §11): LLM05 has *no native MITRE ATLAS technique*. We
-# cross-reference ATT&CK T1059 (Command and Scripting Interpreter) because the
-# dangerous sinks here (shell_exec / code_eval, and SQL/HTML interpreters) are
-# exactly downstream command/script execution — the cross-ref is genuine (PRD D2).
-#
-# Sample spec: generator/samples/unsanitized_output_to_sink.{positive,negative}.json
-title: Unsanitized LLM output reaching a dangerous sink (LLM05)
+title: Unsanitized LLM Output Reached an Interpreter or Renderer
 id: 3bc7ddec-e008-450b-950c-263f73f90440
 status: experimental
 description: |
-  Detects LLM output that reached a code/command/markup execution sink without
-  sanitization — the core of OWASP LLM05:2025 (Improper Output Handling). Fires
-  when output.rendered_unsanitized is true AND the output.sink is one of the
-  dangerous interpreters (sql_exec, shell_exec, html_render, code_eval), where
-  unsanitized model output becomes SQL injection, command/RCE, or stored/reflected
-  XSS downstream.
-
-  Tier-1: keys only on the gateway's always-on output-handling verdict fields;
-  no prompt or response text is required. Benign sinks (markdown, downstream_api,
-  none) and sanitized renders do not fire.
+    Detects model output that reached a SQL, shell, code-evaluation or HTML sink without
+    sanitization, as reported by the application's output-handling instrumentation. Output
+    treated as trusted by an interpreter is how prompt injection becomes SQL injection,
+    command execution or cross-site scripting. Markdown sinks are excluded because
+    unsanitized Markdown rendering is usually a standing configuration issue rather than an
+    event; audit it separately.
 references:
-  - https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/
-  - https://attack.mitre.org/techniques/T1059/
+    - https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/
+    - https://attack.mitre.org/techniques/T1059/
 author: PromptHound contributors
 date: 2026-06-04
+modified: 2026-09-26
+license: DRL-1.1
 tags:
-  - owasp-llm.llm05
-  # No native ATLAS technique for insecure output handling (PRD §11); ATT&CK
-  # T1059 (Command and Scripting Interpreter) is a genuine cross-ref for the
-  # command/code-execution sinks below.
-  - attack.t1059
-  - prompthound.tier.t1
+    - attack.execution
+    - attack.t1059
 logsource:
-  product: llm_gateway
-  # Audit-log schema: docs/PRD.md §10.6 (Insecure output handling).
+    product: llm_gateway
 detection:
-  unsanitized:
-    output.rendered_unsanitized: true
-  dangerous_sink:
-    output.sink:
-      - sql_exec
-      - shell_exec
-      - html_render
-      - code_eval
-  condition: unsanitized and dangerous_sink
+    unsanitized:
+        output.rendered_unsanitized: true
+    dangerous_sink:
+        output.sink:
+            - 'sql_exec'
+            - 'shell_exec'
+            - 'code_eval'
+            - 'html_render'
+    condition: unsanitized and dangerous_sink
 falsepositives:
-  - Sinks whose downstream consumer performs its own sanitization/escaping after
-    the gateway recorded the raw render (the boolean reflects the gateway's view;
-    confirm the downstream control before dismissing).
-  - Internal tooling that intentionally evaluates trusted, templated output in a
-    sandbox — scope by app.name / app.env.
+    - Consumers that sanitize or escape output after the point where the instrumentation records it; confirm the downstream control before dismissing.
+    - Internal tools that evaluate trusted, templated output in a sandbox; scope by service.name.
 level: high
+prompthound:
+    owasp_llm: [LLM05]
+    owasp_agentic: [ASI05]

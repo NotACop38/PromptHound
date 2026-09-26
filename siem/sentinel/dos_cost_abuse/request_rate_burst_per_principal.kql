@@ -1,0 +1,6 @@
+PromptHoundAuditLog_CL
+| where gen_ai_operation_name in~ ("chat", "text_completion", "generate_content")
+| where isnotempty(user_tenant_id) and isnotempty(user_id)
+// Fixed 1m UTC windows: a burst that straddles a window boundary is split.
+| summarize event_count = count() by user_tenant_id, user_id, bin(timestamp, 1m)
+| where event_count >= 20

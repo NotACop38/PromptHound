@@ -1,1 +1,0 @@
-rag_source_types IN ("web", "email", "file", "ticket") gen_ai_input_messages IN ("*ignore previous instructions*", "*ignore all previous instructions*", "*disregard previous instructions*", "*new instructions:*", "*from now on you will*", "*forward the conversation*", "*exfiltrate*", "*send the contents to*") content_input_injection_markers>=1

@@ -187,3 +187,76 @@ column repeats it, to make the "names track OTel" intent explicit.
 ```
 
 > **Note (P1, PRD §8):** the input above is a recognizable *marker phrase* illustrating the log signature — not an operational exploit. Rules key on intent markers + derived/Tier-1 features, not on any single string.
+
+<!-- fields:start -->
+### Metadata fields
+
+| Field | Type | Origin | SIEM column | Description |
+|---|---|---|---|---|
+| `schema_version` | string | PromptHound | `schema_version` | Schema version of this event. |
+| `timestamp` | string | PromptHound | `timestamp` | Operation time as an RFC 3339 timestamp with a UTC offset. |
+| `event.id` | string | PromptHound | `event_id` | Unique event identifier; used to deduplicate replayed events. |
+| `event.outcome` | string | PromptHound | `event_outcome` | Operation outcome. blocked means a policy stopped the operation. |
+| `gen_ai.operation.name` | string | OpenTelemetry | `gen_ai_operation_name` | Operation name. Well-known values include chat, generate_content, text_completion, embeddings, retrieval, execute_tool, invoke_agent, create_agent and invoke_workflow. |
+| `gen_ai.conversation.id` | string | OpenTelemetry | `gen_ai_conversation_id` | Conversation or session identifier, unique within the tenant. |
+| `gen_ai.provider.name` | string | OpenTelemetry | `gen_ai_provider_name` | Model provider, for example openai, anthropic or aws.bedrock. |
+| `gen_ai.request.model` | string | OpenTelemetry | `gen_ai_request_model` | Requested model name. |
+| `gen_ai.response.model` | string | OpenTelemetry | `gen_ai_response_model` | Model that produced the response. |
+| `service.name` | string | OpenTelemetry | `service_name` | Name of the LLM application or gateway. |
+| `deployment.environment.name` | string | OpenTelemetry | `deployment_environment_name` | Deployment environment, for example production or staging. |
+| `user.id` | string | OpenTelemetry | `user_id` | Pseudonymous principal identifier, unique within the tenant. |
+| `user.roles` | string array | OpenTelemetry | `user_roles` (Splunk `user_roles{}`) | Roles or authorization groups of the principal. |
+| `user.tenant.id` | string | PromptHound | `user_tenant_id` | Tenant or organization identifier. Every correlation groups by it. |
+| `api_key.id` | string | PromptHound | `api_key_id` | Opaque or hashed API key identifier. Never the key itself. |
+| `client.address` | string | OpenTelemetry | `client_address` | Address of the client that called the gateway. |
+| `user_agent.original` | string | OpenTelemetry | `user_agent_original` | Client user agent. |
+| `http.request.id` | string | PromptHound | `http_request_id` | Request identifier for correlation with upstream HTTP logs. |
+| `gen_ai.usage.input_tokens` | integer | OpenTelemetry | `gen_ai_usage_input_tokens` | Input tokens consumed. |
+| `gen_ai.usage.output_tokens` | integer | OpenTelemetry | `gen_ai_usage_output_tokens` | Output tokens produced. |
+| `gen_ai.usage.reasoning.output_tokens` | integer | OpenTelemetry | `gen_ai_usage_reasoning_output_tokens` | Reasoning tokens, when the provider reports them. |
+| `usage.total_tokens` | integer | PromptHound | `usage_total_tokens` | Input plus output tokens. |
+| `gen_ai.request.temperature` | number | OpenTelemetry | `gen_ai_request_temperature` | Requested sampling temperature. |
+| `gen_ai.request.top_p` | number | OpenTelemetry | `gen_ai_request_top_p` | Requested nucleus-sampling probability. |
+| `gen_ai.request.max_tokens` | integer | OpenTelemetry | `gen_ai_request_max_tokens` | Requested maximum output tokens. |
+| `gen_ai.request.choice.count` | integer | OpenTelemetry | `gen_ai_request_choice_count` | Requested number of candidate completions. |
+| `gen_ai.response.finish_reasons` | string array | OpenTelemetry | `gen_ai_response_finish_reasons` (Splunk `gen_ai_response_finish_reasons{}`) | Finish reason per choice, for example stop, length, tool_calls or content_filter. |
+| `cost.usd` | number | PromptHound | `cost_usd` | Gateway-computed cost of the operation in US dollars. |
+| `error.type` | string | OpenTelemetry | `error_type` | Low-cardinality error class when the operation failed. |
+| `policy.decision` | string | PromptHound | `policy_decision` | Gateway policy decision for the operation. |
+| `gen_ai.data_source.id` | string | OpenTelemetry | `gen_ai_data_source_id` | Identifier of the data source used for retrieval. |
+| `rag.retrieved.count` | integer | PromptHound | `rag_retrieved_count` | Number of retrieved chunks added to the model context. |
+| `rag.source.types` | string array | PromptHound | `rag_source_types` (Splunk `rag_source_types{}`) | Types of the retrieved sources, for example web, email, file, ticket or db. |
+| `gen_ai.agent.id` | string | OpenTelemetry | `gen_ai_agent_id` | Agent identifier. |
+| `gen_ai.agent.name` | string | OpenTelemetry | `gen_ai_agent_name` | Agent name. |
+| `gen_ai.tool.name` | string | OpenTelemetry | `gen_ai_tool_name` | Name of the invoked tool. |
+| `gen_ai.tool.call.id` | string | OpenTelemetry | `gen_ai_tool_call_id` | Tool call identifier. |
+| `gen_ai.tool.type` | string | OpenTelemetry | `gen_ai_tool_type` | Tool type, for example function, extension or datastore. |
+| `tool.call.depth` | integer | PromptHound | `tool_call_depth` | Position of this call in the current tool chain. |
+| `tool.call.chain` | string array | PromptHound | `tool_call_chain` (Splunk `tool_call_chain{}`) | Names of the tools invoked so far in this turn, in order. |
+| `tool.call.outcome` | string | PromptHound | `tool_call_outcome` | Outcome of the tool call. denied means an authorization policy refused it. |
+| `output.sink` | string | PromptHound | `output_sink` | Downstream consumer that received the model output. |
+| `output.rendered_unsanitized` | boolean | PromptHound | `output_rendered_unsanitized` | The output reached its sink without sanitization or escaping. |
+
+### Derived fields (produced by a content detector)
+
+| Field | Type | Origin | SIEM column | Description |
+|---|---|---|---|---|
+| `guardrail.input.flagged` | boolean | PromptHound | `guardrail_input_flagged` | An input guardrail flagged the request. |
+| `guardrail.input.categories` | string array | PromptHound | `guardrail_input_categories` (Splunk `guardrail_input_categories{}`) | Input guardrail categories, for example injection or pii. |
+| `guardrail.output.flagged` | boolean | PromptHound | `guardrail_output_flagged` | An output guardrail flagged the response. |
+| `guardrail.output.categories` | string array | PromptHound | `guardrail_output_categories` (Splunk `guardrail_output_categories{}`) | Output guardrail categories. |
+| `content.input.injection_markers` | integer | PromptHound | `content_input_injection_markers` | Number of prompt-injection or instruction-extraction markers a detector found in the input. |
+| `content.output.contains_system_prompt` | boolean | PromptHound | `content_output_contains_system_prompt` | A detector found system-instruction content in the output. |
+| `content.output.pii.types` | string array | PromptHound | `content_output_pii_types` (Splunk `content_output_pii_types{}`) | Personal-data classes a detector found in the output, for example email, phone or ssn. |
+| `content.output.secret.types` | string array | PromptHound | `content_output_secret_types` (Splunk `content_output_secret_types{}`) | Credential classes a detector found in the output, for example api_key or private_key. |
+
+### Content fields
+
+| Field | Type | Origin | SIEM column | Description |
+|---|---|---|---|---|
+| `gen_ai.tool.call.arguments` | any | OpenTelemetry | `gen_ai_tool_call_arguments` | Arguments passed to the tool. |
+| `gen_ai.tool.call.result` | any | OpenTelemetry | `gen_ai_tool_call_result` | Result returned by the tool. |
+| `gen_ai.system_instructions` | string or array | OpenTelemetry | `gen_ai_system_instructions` | System instructions supplied to the model. |
+| `gen_ai.input.messages` | array | OpenTelemetry | `gen_ai_input_messages` | Input messages in the OpenTelemetry message format: {role, parts}. |
+| `gen_ai.output.messages` | array | OpenTelemetry | `gen_ai_output_messages` | Output messages in the OpenTelemetry message format: {role, parts, finish_reason}. |
+<!-- fields:end -->

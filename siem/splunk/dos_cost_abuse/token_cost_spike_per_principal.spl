@@ -1,0 +1,4 @@
+`prompthound_audit` gen_ai_operation_name IN ("chat", "text_completion", "generate_content") usage_total_tokens>=8000
+| bin _time span=5m
+| stats count as event_count by _time user_tenant_id user_id
+| search event_count >= 10

@@ -1,0 +1,1 @@
+`prompthound_audit` output_rendered_unsanitized=true output_sink IN ("sql_exec", "shell_exec", "code_eval", "html_render")
