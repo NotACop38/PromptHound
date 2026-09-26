@@ -1,21 +1,31 @@
 PromptHound
 Copyright 2026 PromptHound contributors
 
-This product includes software developed by the PromptHound contributors.
+Licensing
+---------
+  * Detection content is licensed under the Detection Rule License (DRL) 1.1
+    (see LICENSE-RULES): the Sigma rules under rules/ and the queries, Splunk
+    app and table definition generated from them under siem/, including their
+    copies in release archives.
+  * Everything else — the Python package, scripts, tests, scenario files, the
+    audit event schema and the documentation — is licensed under the Apache
+    License, Version 2.0 (see LICENSE).
 
-Dual licensing (PRD §9, decision D7)
-------------------------------------
-  * Source code and documentation are licensed under the Apache License,
-    Version 2.0 (see LICENSE).
-  * Detection content — the Sigma rules under rules/ and the SPL / KQL /
-    savedsearches.conf generated from them under out/ — is licensed under the
-    Detection Rule License (DRL) 1.1 (see LICENSE-RULES).
+If you share the rules (including in modified form), or use them to produce
+alerts, retain the rule's author attribution and a link to the rule set, as the
+DRL requires.
 
-If you redistribute the detection rules (including in modified form), or ship
-alerts/messages based on matches with them, retain the rule author/attribution
-(the Sigma `author` field) and a link to the rule set, as required by the DRL.
-
-This repository adopts the Tier 1 / Tier 2 detection model from Splunk's
-"MITRE ATLAS AI Threat Detection for Splunk" (credited; see docs/PRD.md §6).
-Framework mappings reference the OWASP Top 10 for LLM Applications (2025), the
-OWASP Agentic AI — Threats and Mitigations taxonomy, and MITRE ATLAS.
+Third-party material
+--------------------
+  * src/prompthound/data/atlas.json is derived from MITRE ATLAS data
+    (https://github.com/mitre-atlas/atlas-data), Copyright 2021-2026 MITRE,
+    licensed under the Apache License, Version 2.0. MITRE ATLAS and MITRE ATT&CK
+    are trademarks of The MITRE Corporation.
+  * MITRE ATT&CK technique and tactic names are used with attribution to
+    The MITRE Corporation (https://attack.mitre.org/resources/legal-and-branding/terms-of-use/).
+  * OWASP Top 10 for LLM Applications 2025 and OWASP Top 10 for Agentic
+    Applications 2026 category names are from the OWASP GenAI Security Project
+    (https://genai.owasp.org), licensed under CC BY-SA 4.0.
+  * Field names follow the OpenTelemetry semantic conventions
+    (https://opentelemetry.io/docs/specs/semconv/), licensed under the Apache
+    License, Version 2.0.

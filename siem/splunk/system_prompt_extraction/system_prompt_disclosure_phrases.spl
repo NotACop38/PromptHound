@@ -1,0 +1,1 @@
+`prompthound_audit` gen_ai_output_messages IN ("*you are a helpful assistant*", "*my system prompt*", "*my system instructions*", "*my initial instructions*", "*here are my instructions*", "*the system prompt is*", "*my instructions are*", "*i was instructed to*")

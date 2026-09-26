@@ -1,0 +1,40 @@
+cases:
+  - name: Unsanitized output executed as SQL
+    expect: alert
+    events:
+      - set:
+          output.sink: sql_exec
+          output.rendered_unsanitized: true
+
+  - name: Unsanitized output passed to a shell
+    expect: alert
+    events:
+      - set:
+          output.sink: shell_exec
+          output.rendered_unsanitized: true
+
+  - name: Unsanitized output rendered as HTML
+    expect: alert
+    events:
+      - set:
+          output.sink: html_render
+          output.rendered_unsanitized: true
+
+  - name: Sanitized output to a SQL sink
+    expect: silent
+    events:
+      - set:
+          output.sink: sql_exec
+          output.rendered_unsanitized: false
+
+  - name: Unsanitized Markdown is excluded
+    expect: silent
+    events:
+      - set:
+          output.sink: markdown
+          output.rendered_unsanitized: true
+
+  - name: Output handling not instrumented
+    expect: silent
+    events:
+      - response: Here is the report you asked for.

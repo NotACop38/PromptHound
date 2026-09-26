@@ -1,0 +1,34 @@
+cases:
+  - name: Six truncated completions in one conversation
+    expect: alert
+    alerts: 1
+    events:
+      - set:
+          gen_ai.usage.output_tokens: 4096
+          gen_ai.response.finish_reasons: [length]
+        repeat: 6
+        interval: 30s
+
+  - name: Truncation reported among several finish reasons
+    expect: alert
+    events:
+      - set:
+          gen_ai.request.choice.count: 2
+          gen_ai.response.finish_reasons: [stop, length]
+        repeat: 5
+        interval: 30s
+
+  - name: Four truncated completions stay below the threshold
+    expect: silent
+    events:
+      - set:
+          gen_ai.usage.output_tokens: 4096
+          gen_ai.response.finish_reasons: [length]
+        repeat: 4
+        interval: 30s
+
+  - name: Completions that finished normally
+    expect: silent
+    events:
+      - repeat: 6
+        interval: 30s

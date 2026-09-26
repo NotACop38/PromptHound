@@ -1,0 +1,31 @@
+cases:
+  - name: Two scored markers
+    expect: alert
+    events:
+      - set:
+          content.input.injection_markers: 2
+
+  - name: Many scored markers
+    expect: alert
+    events:
+      - set:
+          content.input.injection_markers: 5
+          event.outcome: blocked
+          policy.decision: block
+
+  - name: One scored marker stays below the threshold
+    expect: silent
+    events:
+      - set:
+          content.input.injection_markers: 1
+
+  - name: No scored markers
+    expect: silent
+    events:
+      - set:
+          content.input.injection_markers: 0
+
+  - name: Marker count not reported by the gateway
+    expect: silent
+    events:
+      - unset: [content.input.injection_markers]

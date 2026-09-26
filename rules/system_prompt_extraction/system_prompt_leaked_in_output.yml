@@ -1,54 +1,32 @@
-# Possible exposure indicators; this is not confirmation of extraction success.
-# The derived and content branches are alternatives with different prerequisites.
-# Sample spec: generator/samples/system_prompt_leaked_in_output.{positive,negative}.json
-title: Possible system-prompt exposure marker in LLM output
+title: System-Prompt Content Detected in LLM Output
 id: 05450153-9a94-4bbb-bae5-c9ba47c92f4f
+related:
+    - id: 7d0f4c5e-2b8a-4d63-9e1f-3a6c5b8e2d14
+      type: similar
 status: experimental
 description: |
-  Flags a gateway-reported system-prompt similarity marker or an output phrase
-  associated with discussing instructions. The derived boolean supports Tier 1;
-  the alternative phrase branch requires Tier 2 content. Neither branch proves
-  that a hidden or sensitive instruction was disclosed. Review the actual
-  output against the application's intended disclosure policy before escalation.
-  Maps to OWASP LLM07:2025 and ATLAS AML.T0056 as investigation context.
+    Detects a response in which the gateway's output detector found content from the
+    application's system instructions, for example through a canary token or similarity
+    check. The rule reads only the derived flag, so it runs without storing response text.
+    Review the response against the application's disclosure policy: some deployments
+    intentionally reveal part of their instructions.
 references:
-  - https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
-  - https://atlas.mitre.org/techniques/AML.T0056
-  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+    - https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
+    - https://atlas.mitre.org/techniques/AML.T0056
 author: PromptHound contributors
 date: 2026-06-04
-tags:
-  - owasp-llm.llm07
-  - attack.atlas.aml.t0056
-  - prompthound.tier.t1
-  - prompthound.tier.t2
+modified: 2026-09-26
+license: DRL-1.1
 logsource:
-  product: llm_gateway
-  # Audit-log schema: docs/PRD.md §10 (LLM Gateway / Agent Audit Log).
+    product: llm_gateway
 detection:
-  leaked_marker:
-    # Derived Tier-1 marker (PRD §10.8): the gateway scored the output as
-    # echoing the system instructions. Runs without persisting raw text.
-    content.output.contains_system_prompt: true
-  leaked_in_output_text:
-    # Tier-2 content inspection: the response recites its own hidden
-    # instructions. Generalizable echo signatures, not exploit payloads (P1).
-    gen_ai.output.messages|contains:
-      - 'you are a helpful assistant'
-      - 'my system prompt'
-      - 'my system instructions'
-      - 'my initial instructions'
-      - 'here are my instructions'
-      - 'the system prompt is'
-      - 'my instructions are'
-      - 'i was instructed to'
-  condition: leaked_marker or leaked_in_output_text
+    selection:
+        content.output.contains_system_prompt: true
+    condition: selection
 falsepositives:
-  - Developers, red-teamers, or security researchers reviewing their own
-    application's prompt during authorized testing.
-  - Assistants that intentionally and safely disclose a public, non-sensitive
-    portion of their system prompt (e.g. a documented persona blurb).
-  - Conversations that legitimately quote the phrase "you are a helpful
-    assistant" while discussing prompt engineering (tune/remove that marker, or
-    rely on the derived contains_system_prompt boolean alone).
+    - Assistants that intentionally disclose a public portion of their instructions, such as a documented persona.
+    - Detector false positives on short or generic instruction text; prefer canary-token checks where possible.
 level: high
+prompthound:
+    owasp_llm: [LLM07]
+    atlas: [AML.T0056]

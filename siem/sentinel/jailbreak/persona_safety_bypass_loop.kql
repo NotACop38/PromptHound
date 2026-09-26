@@ -1,0 +1,6 @@
+PromptHoundAuditLog_CL
+| where (gen_ai_operation_name in~ ("chat", "text_completion", "generate_content")) and (gen_ai_input_messages contains "you are now dan" or gen_ai_input_messages contains "do anything now" or gen_ai_input_messages contains "developer mode" or gen_ai_input_messages contains "ignore your safety guidelines" or gen_ai_input_messages contains "ignore your guidelines" or gen_ai_input_messages contains "bypass your restrictions" or gen_ai_input_messages contains "without any restrictions" or gen_ai_input_messages contains "pretend you have no rules" or gen_ai_input_messages contains "you have no content policy" or gen_ai_input_messages contains "act as an unrestricted") and set_has_element(parse_json(translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz", tostring(gen_ai_response_finish_reasons))), "content_filter")
+| where isnotempty(user_tenant_id) and isnotempty(gen_ai_conversation_id)
+// Fixed 10m UTC windows: a burst that straddles a window boundary is split.
+| summarize event_count = count() by user_tenant_id, gen_ai_conversation_id, bin(timestamp, 10m)
+| where event_count >= 3

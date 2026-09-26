@@ -1,51 +1,32 @@
-# PromptHound — DoS / cost-abuse (denial-of-wallet) detection.
-# PRD §11 rule #7 (LLM10 Unbounded Consumption). Tier-1, single selection match:
-# keys only on always-on operational metadata (gen_ai.request.max_tokens), no
-# prompt/response content required — privacy-friendly (PRD §8 P4, §10.2).
-#
-# One behaviour: a single request demanding an abnormally large completion. A
-# caller asking for a six-figure max_tokens is a cheap, one-shot lever on the
-# gateway's bill (denial-of-wallet) and a building block of sustained abuse.
-#
-# Sample spec: generator/samples/oversized_max_tokens.{positive,negative}.json
-title: Oversized max_tokens request (denial-of-wallet)
+title: Very Large Output Budget Requested
 id: 1017dcbe-6c1f-40b7-bcdf-adc58a350df8
 status: experimental
 description: |
-  Detects a single LLM completion request whose requested output budget
-  (gen_ai.request.max_tokens) is large enough to be abusive on its own — a
-  one-shot denial-of-wallet lever (OWASP LLM10:2025 Unbounded Consumption).
-
-  Tier-1: fires on the always-on request metadata alone (no prompt/response
-  text). The threshold is deliberately well above normal application limits so a
-  routine long-form generation does not trip it; tune it to your deployment's
-  legitimate ceiling.
+    Detects a completion request whose max_tokens is 100,000 or more. Requests for very
+    long outputs are a direct lever on cost and latency. Some current models accept output
+    budgets of this size legitimately, so this is a governance signal: set the threshold
+    just above the largest budget each application is expected to request.
 references:
-  - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
-  - https://atlas.mitre.org/techniques/AML.T0034
-  - https://atlas.mitre.org/techniques/AML.T0029
+    - https://genai.owasp.org/llmrisk/llm102025-unbounded-consumption/
+    - https://atlas.mitre.org/techniques/AML.T0034.001
 author: PromptHound contributors
 date: 2026-06-04
-tags:
-  - owasp-llm.llm10
-  - attack.atlas.aml.t0034
-  - attack.atlas.aml.t0029
-  - prompthound.tier.t1
+modified: 2026-09-26
+license: DRL-1.1
 logsource:
-  product: llm_gateway
-  # Audit-log schema: docs/PRD.md §10 (LLM Gateway / Agent Audit Log).
+    product: llm_gateway
 detection:
-  completion:
-    event.action:
-      - chat
-      - text_completion
-  oversized:
-    gen_ai.request.max_tokens|gte: 100000
-  condition: completion and oversized
+    selection:
+        gen_ai.operation.name:
+            - 'chat'
+            - 'text_completion'
+            - 'generate_content'
+        gen_ai.request.max_tokens|gte: 100000
+    condition: selection
 falsepositives:
-  - Legitimate long-form generation jobs (book-length drafting, bulk
-    summarization) configured with very high output ceilings — scope by
-    app.name / user.roles or raise the threshold for known batch principals.
-  - Misconfigured clients that pass an inflated max_tokens without intent to
-    abuse; still worth surfacing as a cost-governance signal.
-level: medium
+    - Long-form generation jobs configured with high output budgets; scope by service.name or raise the threshold.
+    - Clients that send the model's maximum budget by default without intending to use it.
+level: low
+prompthound:
+    owasp_llm: [LLM10]
+    atlas: [AML.T0034.001]

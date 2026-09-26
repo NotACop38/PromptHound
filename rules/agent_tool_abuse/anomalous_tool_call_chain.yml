@@ -1,68 +1,56 @@
-# Tool-name co-occurrence signal. Ordering and data flow are not inferred.
-# Sample spec: generator/samples/anomalous_tool_call_chain.{positive,negative}.json
-title: Sensitive-read and egress tool names in one chain
+title: Sensitive-Read and Egress Tools in One Agent Tool Chain
 id: 2f8b1d4c-6e3a-4c1b-9d72-7a4e5f0c8b21
 status: experimental
 description: |
-  Flags co-occurrence of sensitive-read and egress-like tool names within one
-  chain. This does not test call order, arguments, destinations or authorization;
-  it is a triage lead for potential tool misuse, not evidence of exfiltration.
-  Matches complete tool names, case-insensitively. Adapt the names to the
-  application's tool inventory (including namespaces and suffixes) and baseline
-  legitimate read-and-notify workflows. Only Tier 1 metadata is required.
+    Detects an agent tool chain that includes both a tool that reads sensitive data (files,
+    databases, secrets, mailboxes) and a tool that sends data out (email, HTTP, webhooks,
+    uploads). The combination is the shape of data exfiltration through agent tools. The
+    rule tests co-occurrence only: it does not see call order, arguments, destinations or
+    authorization. Tool names must match exactly (case-insensitively); replace the lists
+    with your application's tool inventory, including namespaces.
 references:
-  - https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
-  - https://atlas.mitre.org/techniques/AML.T0085
-  - https://nvd.nist.gov/vuln/detail/CVE-2025-32711
+    - https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+    - https://atlas.mitre.org/techniques/AML.T0086
+    - https://atlas.mitre.org/techniques/AML.T0085.001
 author: PromptHound contributors
 date: 2026-06-04
-tags:
-  - owasp-llm.llm06
-  # OWASP Agentic AI — Threats and Mitigations (secondary mapping, PRD D6):
-  # abusing integrated tools to read a sensitive source then egress it — T2 Tool
-  # Misuse.
-  - owasp-agentic.t02
-  - attack.atlas.aml.t0085.001
-  - prompthound.tier.t1
+modified: 2026-09-26
+license: DRL-1.1
 logsource:
-  product: llm_gateway
-  # Audit-log schema: docs/PRD.md §10.5 (Agent / tool-call).
+    product: llm_gateway
 detection:
-  tool_turn:
-    event.action:
-      - execute_tool
-      - invoke_agent
-  # A privileged / sensitive-source read somewhere in the turn's chain.
-  sensitive_source:
-    tool.call.chain:
-      - 'read_file'
-      - 'fs.read'
-      - 'db.query'
-      - 'sql.query'
-      - 'secrets.get'
-      - 'vault.read'
-      - 'kv.get'
-      - 'read_email'
-      - 'inbox.read'
-      - 'get_credentials'
-  # An external egress / send tool somewhere in the same chain.
-  external_sink:
-    tool.call.chain:
-      - 'send_email'
-      - 'http.post'
-      - 'http.request'
-      - 'fetch_url'
-      - 'upload_file'
-      - 'post_webhook'
-      - 'slack.post'
-      - 'sftp.put'
-  condition: tool_turn and sensitive_source and external_sink
+    tool_operation:
+        gen_ai.operation.name:
+            - 'execute_tool'
+            - 'invoke_agent'
+    sensitive_read:
+        tool.call.chain:
+            - 'read_file'
+            - 'fs.read'
+            - 'db.query'
+            - 'sql.query'
+            - 'secrets.get'
+            - 'vault.read'
+            - 'kv.get'
+            - 'read_email'
+            - 'inbox.read'
+            - 'get_credentials'
+    egress:
+        tool.call.chain:
+            - 'send_email'
+            - 'http.post'
+            - 'http.request'
+            - 'fetch_url'
+            - 'upload_file'
+            - 'post_webhook'
+            - 'slack.post'
+            - 'sftp.put'
+    condition: tool_operation and sensitive_read and egress
 falsepositives:
-  - Legitimate automation that reads internal data and then notifies an external
-    channel by design (e.g. read a database row, post a status to Slack) — scope
-    by app.name / gen_ai.agent.name, or allowlist the specific chain.
-  - ETL / sync agents whose normal job is read-here, write-there; baseline the
-    expected chains per agent and alert only on out-of-baseline combinations.
-  - Coarse tool naming where one tool both reads and sends (review the agent's
-    tool inventory and refine the marker lists to its actual tools).
-level: high
+    - Automation that reads internal data and notifies an external channel by design, such as posting a database status to Slack; scope by gen_ai.agent.name or allowlist the chain.
+    - Synchronization agents whose normal job is to read in one place and write in another.
+level: medium
+prompthound:
+    owasp_llm: [LLM06]
+    owasp_agentic: [ASI02]
+    atlas: [AML.T0086, AML.T0085.001]

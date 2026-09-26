@@ -1,265 +1,75 @@
-"""PromptHound local CI runner (PRD §16, CHECKLIST Phase 2).
+"""The CI gate: every check a change must pass, in order.
 
-The runner itself is standard-library only; the ``convert`` stage additionally
-imports ``prompthound.convert`` (pySigma + the pinned backends, PRD §13) to
-regenerate SPL/KQL — install the lockfile before running it.
+    python scripts/ci.py                 # all stages
+    python scripts/ci.py --only pytest   # stages whose name contains "pytest"
 
-This one runner is the gate everywhere: GitHub Actions executes it on every
-pull request and push to main (.github/workflows/ci.yml), and the identical
-sequence runs locally on demand:
-
-    python scripts/ci.py        # or: make ci
-
-It runs an ordered list of stages, prints a PASS/FAIL banner for each, and exits
-non-zero if any stage fails. Stage order follows PRD §16 (lint -> schema-validate
--> convert -> test -> coverage build), with a final security stage for the P1-P4
-defensive-posture + supply-chain checks (PRD §8, §17).
-
-A single stage can be run in isolation by name substring::
-
-    python scripts/ci.py --only security
+GitHub Actions runs the same script. Query verification in real SIEM engines
+needs Docker and runs separately (``make verify-siem``).
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import shutil
-
-# Runs pinned dev tools (ruff/mypy/pytest) by fixed argv, never a shell string.
-import subprocess  # nosec B404
+import subprocess  # Fixed arguments, never a shell.  # nosec B404
 import sys
-from collections.abc import Callable
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-# Importable when run as `python scripts/ci.py` (so `scripts.*`/`prompthound.*` resolve).
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-SAMPLES_DIR = REPO_ROOT / "generator" / "samples"
-BAR = "=" * 72
-
-
-def banner(text: str) -> None:
-    print(f"\n{BAR}\n>> {text}\n{BAR}", flush=True)
-
-
-def run_command(cmd: list[str]) -> bool:
-    """Run a subprocess from the repo root; return True on exit code 0."""
-    exe = cmd[0]
-    if shutil.which(exe) is None:
-        print(f"  tool not found on PATH: {exe}")
-        return False
-    print(f"  $ {' '.join(cmd)}")
-    # Fixed argv (no shell); the tool name is resolved on PATH above.
-    return subprocess.run(cmd, cwd=REPO_ROOT, check=False).returncode == 0  # nosec B603
-
-
-def tool(name: str, *args: str) -> Callable[[], bool]:
-    """Build a stage that runs an external dev tool by name (resolved on PATH)."""
-    return lambda: run_command([name, *args])
-
-
-def schema_validate() -> bool:
-    """Validate every generator/samples/*.json event against the audit-log schema.
-
-    Both §10.9 example events ship as sample files; the malicious one is a P1
-    marker phrase, not a working exploit (PRD §8). Conformance is the gate here,
-    not detection -- whether a rule *fires* on a sample is the rule fire/silence
-    stage's job.
-    """
-    sys.path.insert(0, str(REPO_ROOT))
-    from prompthound.schema import load_schema, validate_event
-
-    schema = load_schema()
-    samples = sorted(SAMPLES_DIR.glob("*.json"))
-    if not samples:
-        print(f"  no sample events found under {SAMPLES_DIR.relative_to(REPO_ROOT)}/")
-        return False
-
-    ok = True
-    for path in samples:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        # A sample file holds either a single event (selection-match rules) or a
-        # JSON array of events (correlation rules, whose positive is a burst).
-        events = payload if isinstance(payload, list) else [payload]
-        if not events:
-            print(f"  INVALID  {path.name}: empty sample array")
-            ok = False
-            continue
-        errors = [
-            f"[{i}] {error}"
-            for i, event in enumerate(events)
-            for error in validate_event(event, schema)
-        ]
-        rel = path.relative_to(REPO_ROOT)
-        if errors:
-            ok = False
-            print(f"  INVALID  {rel}")
-            for error in errors:
-                print(f"      - {error}")
-        else:
-            print(f"  ok       {rel}")
-    return ok
-
-
-# --- convert stage (PRD §16 "convert (snapshot)", §12, decision D5) -----------
-#
-# Snapshot *check*, not a writer: every rule is run through both pySigma backends
-# and the regenerated SPL/KQL is compared against the committed out/ snapshot.
-# The stage fails if any output is empty (SPL, KQL, or savedsearches.conf),
-# non-byte-stable, missing from out/, drifted from out/, or if out/ holds a stale
-# generated file with no current source. Run `python scripts/release.py` to
-# (re)write out/. This keeps an ephemeral CI run honest -- it never silently
-# rewrites the artifacts it is supposed to be guarding.
-
-
-def convert_stage() -> bool:
-    """Verify the committed out/ SPL+KQL snapshot is current, non-empty, and stable."""
-    from scripts.conversion import OUT_DIR as ARTIFACT_OUT_DIR
-    from scripts.conversion import build_artifacts, committed_outputs
-
-    artifacts, errors = build_artifacts()
-    ok = True
-    for error in errors:
-        print(f"  [FAIL] {error}")
-        ok = False
-    if not artifacts:
-        return False
-
-    print(f"  checking {len(artifacts)} generated artifact(s) against out/")
-    for path, content in sorted(artifacts.items()):
-        rel = path.relative_to(ARTIFACT_OUT_DIR)
-        if not path.is_file():
-            print(f"  [FAIL] out/{rel}: missing snapshot (run scripts/release.py)")
-            ok = False
-        elif path.read_text(encoding="utf-8") != content:
-            print(f"  [FAIL] out/{rel}: snapshot drift (run scripts/release.py)")
-            ok = False
-        else:
-            print(f"  [ ok ] out/{rel}")
-
-    # Orphans: committed artifacts whose source rule/fixture no longer exists.
-    for path in sorted(committed_outputs() - set(artifacts)):
-        print(f"  [FAIL] out/{path.relative_to(ARTIFACT_OUT_DIR)}: stale (run scripts/release.py)")
-        ok = False
-
-    return ok
-
-
-# --- coverage-build stage (PRD §16, CHECKLIST Phase 4) ------------------------
-#
-# Coverage and presentation assets are compared with committed snapshots.
-# Regeneration belongs to release.py; CI must not silently repair drift.
-
-
-def coverage_build_stage() -> bool:
-    """Check coverage snapshots without repairing the evidence under test."""
-    from prompthound.coverage import REPO_ROOT as COVERAGE_REPO_ROOT
-    from prompthound.coverage import (
-        generate_artifacts,
-        generate_presentation_assets,
-    )
-
-    artifacts, errors = generate_artifacts()
-    assets, asset_errors = generate_presentation_assets()
-    errors += asset_errors
-    if errors:
-        for error in errors:
-            print(f"  [FAIL] {error}")
-        return False
-    ok = True
-    for path, expected in sorted({**artifacts, **assets}.items()):
-        if not path.is_file() or path.read_text(encoding="utf-8") != expected:
-            print(f"  [FAIL] {path.relative_to(COVERAGE_REPO_ROOT)}: snapshot drift")
-            ok = False
-        else:
-            print(f"  [ ok ] {path.relative_to(COVERAGE_REPO_ROOT)}")
-    return ok
-
-
-# --- security stage (PRD §8 P1-P4, §17) ---------------------------------------
-#
-# Delegates to scripts.security so the checks stay testable in isolation; that
-# module bundles pip-audit (lockfile), bandit (first-party Python), and a secrets
-# scan, each failing on findings.
-
-
-def security_stage() -> bool:
-    """Run the defensive-posture / supply-chain checks (delegates to scripts.security)."""
-    from scripts.security import security_stage as run_security
-
-    return run_security()
 
 
 @dataclass(frozen=True)
 class Stage:
     name: str
-    run: Callable[[], bool]
+    argv: tuple[str, ...]
 
 
-# Ordered per PRD §16: lint -> schema-validate -> convert -> test -> coverage.
-STAGES: list[Stage] = [
-    Stage("ruff format --check", tool("ruff", "format", "--check", ".")),
-    Stage("ruff check", tool("ruff", "check", ".")),
-    Stage("mypy prompthound", tool("mypy", "prompthound")),
-    Stage("schema-validate", schema_validate),
-    Stage("convert (SPL + KQL snapshot)", convert_stage),
-    Stage("pytest", tool("pytest", "-q")),
-    Stage("coverage-build", coverage_build_stage),
-    # Defensive posture + supply chain, enforced locally (PRD §8 P1-P4, §17):
-    # pip-audit over the lockfile, bandit over the first-party Python, and a
-    # secrets scan -- each fails on findings. Run standalone with
-    # `python scripts/ci.py --only security`.
-    Stage("security", security_stage),
-]
+STAGES = (
+    Stage("ruff format", ("ruff", "format", "--check", ".")),
+    Stage("ruff check", ("ruff", "check", ".")),
+    Stage("mypy", ("mypy",)),
+    Stage("pytest", ("pytest", "--cov", "--cov-report=term-missing:skip-covered")),
+    Stage("generated artifacts", (sys.executable, "scripts/generate.py", "--check")),
+    Stage("security", (sys.executable, "scripts/security.py")),
+)
+
+
+def run(stage: Stage) -> bool:
+    executable = shutil.which(stage.argv[0])
+    if executable is None:
+        print(f"{stage.argv[0]} is not installed (install requirements-dev.lock)")
+        return False
+    return (
+        # The command line comes from STAGES.
+        subprocess.run(  # noqa: S603  # nosec B603
+            [executable, *stage.argv[1:]], cwd=REPO_ROOT, check=False
+        ).returncode
+        == 0
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="python scripts/ci.py",
-        description="PromptHound local CI runner (PRD §16). Runs every stage by default.",
-    )
-    parser.add_argument(
-        "--only",
-        metavar="STAGE",
-        help="Run only the stage(s) whose name contains this string (e.g. --only security).",
-    )
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--only", metavar="TEXT", help="run stages whose name contains TEXT")
     args = parser.parse_args(argv)
+    stages = [s for s in STAGES if not args.only or args.only.lower() in s.name]
+    if not stages:
+        parser.error(f"no stage matches {args.only!r}; stages: {', '.join(s.name for s in STAGES)}")
 
-    stages = STAGES
-    if args.only:
-        needle = args.only.lower()
-        stages = [s for s in STAGES if needle in s.name.lower()]
-        if not stages:
-            available = ", ".join(s.name for s in STAGES)
-            parser.error(f"no stage matches --only {args.only!r}. Available: {available}")
+    results: list[tuple[str, bool, float]] = []
+    for stage in stages:
+        print(f"\n=== {stage.name}: {' '.join(stage.argv)}", flush=True)
+        started = time.monotonic()
+        results.append((stage.name, run(stage), time.monotonic() - started))
 
-    banner("PromptHound local CI runner")
-    print(f"  repo:   {REPO_ROOT}")
-    print(f"  python: {sys.version.split()[0]}")
-    if args.only:
-        print(f"  only:   {args.only} -> {', '.join(s.name for s in stages)}")
-
-    results: list[tuple[str, bool]] = []
-    total = len(stages)
-    for index, stage in enumerate(stages, start=1):
-        banner(f"STAGE {index}/{total}: {stage.name}")
-        ok = stage.run()
-        print(f"{'[ PASS ]' if ok else '[ FAIL ]'} {stage.name}", flush=True)
-        results.append((stage.name, ok))
-
-    banner("SUMMARY")
-    for name, ok in results:
-        print(f"  {'PASS' if ok else 'FAIL'}  {name}")
-    failed = [name for name, ok in results if not ok]
-    if failed:
-        print(f"\n[ FAIL ] CI failed -- {len(failed)} stage(s): {', '.join(failed)}")
-        return 1
-    print("\n[ PASS ] CI passed -- all stages green.")
-    return 0
+    print("\n=== summary")
+    for name, passed, seconds in results:
+        print(f"{'pass' if passed else 'FAIL'}  {name} ({seconds:.1f}s)")
+    failed = [name for name, passed, _ in results if not passed]
+    print(f"\n{'CI failed: ' + ', '.join(failed) if failed else 'CI passed'}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

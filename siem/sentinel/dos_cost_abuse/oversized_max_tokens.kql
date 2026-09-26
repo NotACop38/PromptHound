@@ -1,0 +1,2 @@
+PromptHoundAuditLog_CL
+| where (gen_ai_operation_name in~ ("chat", "text_completion", "generate_content")) and gen_ai_request_max_tokens >= 100000

@@ -1,0 +1,289 @@
+{
+  "name": "PromptHoundAuditLog_CL",
+  "columns": [
+    {
+      "name": "TimeGenerated",
+      "type": "datetime"
+    },
+    {
+      "name": "schema_version",
+      "type": "string",
+      "description": "Schema version of this event."
+    },
+    {
+      "name": "timestamp",
+      "type": "datetime",
+      "description": "Operation time as an RFC 3339 timestamp with a UTC offset."
+    },
+    {
+      "name": "event_id",
+      "type": "string",
+      "description": "Unique event identifier; used to deduplicate replayed events."
+    },
+    {
+      "name": "event_outcome",
+      "type": "string",
+      "description": "Operation outcome. blocked means a policy stopped the operation."
+    },
+    {
+      "name": "gen_ai_operation_name",
+      "type": "string",
+      "description": "Operation name. Well-known values include chat, generate_content, text_completion, embeddings, retrieval, execute_tool, invoke_agent, create_agent and invoke_workflow."
+    },
+    {
+      "name": "gen_ai_conversation_id",
+      "type": "string",
+      "description": "Conversation or session identifier, unique within the tenant."
+    },
+    {
+      "name": "gen_ai_provider_name",
+      "type": "string",
+      "description": "Model provider, for example openai, anthropic or aws.bedrock."
+    },
+    {
+      "name": "gen_ai_request_model",
+      "type": "string",
+      "description": "Requested model name."
+    },
+    {
+      "name": "gen_ai_response_model",
+      "type": "string",
+      "description": "Model that produced the response."
+    },
+    {
+      "name": "service_name",
+      "type": "string",
+      "description": "Name of the LLM application or gateway."
+    },
+    {
+      "name": "deployment_environment_name",
+      "type": "string",
+      "description": "Deployment environment, for example production or staging."
+    },
+    {
+      "name": "user_id",
+      "type": "string",
+      "description": "Pseudonymous principal identifier, unique within the tenant."
+    },
+    {
+      "name": "user_roles",
+      "type": "dynamic",
+      "description": "Roles or authorization groups of the principal."
+    },
+    {
+      "name": "user_tenant_id",
+      "type": "string",
+      "description": "Tenant or organization identifier. Every correlation groups by it."
+    },
+    {
+      "name": "api_key_id",
+      "type": "string",
+      "description": "Opaque or hashed API key identifier. Never the key itself."
+    },
+    {
+      "name": "client_address",
+      "type": "string",
+      "description": "Address of the client that called the gateway."
+    },
+    {
+      "name": "user_agent_original",
+      "type": "string",
+      "description": "Client user agent."
+    },
+    {
+      "name": "http_request_id",
+      "type": "string",
+      "description": "Request identifier for correlation with upstream HTTP logs."
+    },
+    {
+      "name": "gen_ai_usage_input_tokens",
+      "type": "long",
+      "description": "Input tokens consumed."
+    },
+    {
+      "name": "gen_ai_usage_output_tokens",
+      "type": "long",
+      "description": "Output tokens produced."
+    },
+    {
+      "name": "gen_ai_usage_reasoning_output_tokens",
+      "type": "long",
+      "description": "Reasoning tokens, when the provider reports them."
+    },
+    {
+      "name": "usage_total_tokens",
+      "type": "long",
+      "description": "Input plus output tokens."
+    },
+    {
+      "name": "gen_ai_request_temperature",
+      "type": "real",
+      "description": "Requested sampling temperature."
+    },
+    {
+      "name": "gen_ai_request_top_p",
+      "type": "real",
+      "description": "Requested nucleus-sampling probability."
+    },
+    {
+      "name": "gen_ai_request_max_tokens",
+      "type": "long",
+      "description": "Requested maximum output tokens."
+    },
+    {
+      "name": "gen_ai_request_choice_count",
+      "type": "long",
+      "description": "Requested number of candidate completions."
+    },
+    {
+      "name": "gen_ai_response_finish_reasons",
+      "type": "dynamic",
+      "description": "Finish reason per choice, for example stop, length, tool_calls or content_filter."
+    },
+    {
+      "name": "cost_usd",
+      "type": "real",
+      "description": "Gateway-computed cost of the operation in US dollars."
+    },
+    {
+      "name": "error_type",
+      "type": "string",
+      "description": "Low-cardinality error class when the operation failed."
+    },
+    {
+      "name": "guardrail_input_flagged",
+      "type": "boolean",
+      "description": "An input guardrail flagged the request."
+    },
+    {
+      "name": "guardrail_input_categories",
+      "type": "dynamic",
+      "description": "Input guardrail categories, for example injection or pii."
+    },
+    {
+      "name": "guardrail_output_flagged",
+      "type": "boolean",
+      "description": "An output guardrail flagged the response."
+    },
+    {
+      "name": "guardrail_output_categories",
+      "type": "dynamic",
+      "description": "Output guardrail categories."
+    },
+    {
+      "name": "policy_decision",
+      "type": "string",
+      "description": "Gateway policy decision for the operation."
+    },
+    {
+      "name": "gen_ai_data_source_id",
+      "type": "string",
+      "description": "Identifier of the data source used for retrieval."
+    },
+    {
+      "name": "rag_retrieved_count",
+      "type": "long",
+      "description": "Number of retrieved chunks added to the model context."
+    },
+    {
+      "name": "rag_source_types",
+      "type": "dynamic",
+      "description": "Types of the retrieved sources, for example web, email, file, ticket or db."
+    },
+    {
+      "name": "gen_ai_agent_id",
+      "type": "string",
+      "description": "Agent identifier."
+    },
+    {
+      "name": "gen_ai_agent_name",
+      "type": "string",
+      "description": "Agent name."
+    },
+    {
+      "name": "gen_ai_tool_name",
+      "type": "string",
+      "description": "Name of the invoked tool."
+    },
+    {
+      "name": "gen_ai_tool_call_id",
+      "type": "string",
+      "description": "Tool call identifier."
+    },
+    {
+      "name": "gen_ai_tool_type",
+      "type": "string",
+      "description": "Tool type, for example function, extension or datastore."
+    },
+    {
+      "name": "gen_ai_tool_call_arguments",
+      "type": "string",
+      "description": "Arguments passed to the tool."
+    },
+    {
+      "name": "gen_ai_tool_call_result",
+      "type": "string",
+      "description": "Result returned by the tool."
+    },
+    {
+      "name": "tool_call_depth",
+      "type": "long",
+      "description": "Position of this call in the current tool chain."
+    },
+    {
+      "name": "tool_call_chain",
+      "type": "dynamic",
+      "description": "Names of the tools invoked so far in this turn, in order."
+    },
+    {
+      "name": "tool_call_outcome",
+      "type": "string",
+      "description": "Outcome of the tool call. denied means an authorization policy refused it."
+    },
+    {
+      "name": "output_sink",
+      "type": "string",
+      "description": "Downstream consumer that received the model output."
+    },
+    {
+      "name": "output_rendered_unsanitized",
+      "type": "boolean",
+      "description": "The output reached its sink without sanitization or escaping."
+    },
+    {
+      "name": "gen_ai_system_instructions",
+      "type": "string",
+      "description": "System instructions supplied to the model."
+    },
+    {
+      "name": "gen_ai_input_messages",
+      "type": "string",
+      "description": "Input messages in the OpenTelemetry message format: {role, parts}."
+    },
+    {
+      "name": "gen_ai_output_messages",
+      "type": "string",
+      "description": "Output messages in the OpenTelemetry message format: {role, parts, finish_reason}."
+    },
+    {
+      "name": "content_input_injection_markers",
+      "type": "long",
+      "description": "Number of prompt-injection or instruction-extraction markers a detector found in the input."
+    },
+    {
+      "name": "content_output_contains_system_prompt",
+      "type": "boolean",
+      "description": "A detector found system-instruction content in the output."
+    },
+    {
+      "name": "content_output_pii_types",
+      "type": "dynamic",
+      "description": "Personal-data classes a detector found in the output, for example email, phone or ssn."
+    },
+    {
+      "name": "content_output_secret_types",
+      "type": "dynamic",
+      "description": "Credential classes a detector found in the output, for example api_key or private_key."
+    }
+  ]
+}

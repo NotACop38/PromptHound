@@ -1,0 +1,1 @@
+`prompthound_audit` gen_ai_operation_name IN ("chat", "text_completion", "generate_content") gen_ai_request_max_tokens>=100000

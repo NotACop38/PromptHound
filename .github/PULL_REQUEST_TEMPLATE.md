@@ -1,16 +1,13 @@
-<!--
-Adding a NEW RULE? Use the new-rule PR template instead — append
-?template=new_rule.md to the PR URL, or see .github/PULL_REQUEST_TEMPLATE/new_rule.md
--->
+<!-- Adding or changing a rule? Use the rule template: append ?template=new_rule.md to the URL. -->
 
-## What & why
+## Summary
 
-<!-- What does this change and why? Link any related issue. -->
+<!-- What changes and why. Link related issues. -->
 
-## Checklist
+## Verification
 
-- [ ] `make ci` is green locally (lint → schema → convert → tests → coverage → security).
-- [ ] If I changed a rule, pipeline, or backend pin, I ran `make release` and committed the `out/` diff (CI's convert/coverage stages are read-only snapshot checks).
-- [ ] Tests added/updated for the change.
-- [ ] Docs updated where relevant; `docs/PRD.md` / `docs/CHECKLIST.md` kept in sync if a decision changed.
-- [ ] This change honors the defensive posture **P1–P4** (signatures not payloads; no live targeting; detection over exploitation; privacy-aware). See [SECURITY.md](../SECURITY.md).
+- [ ] `make ci` passes.
+- [ ] Generated files are regenerated (`make generate`) and committed.
+- [ ] `make verify-siem` passes, or is not needed because this change does not touch conversion, detection logic or the pinned pySigma packages.
+- [ ] Tests cover the change.
+- [ ] `CHANGELOG.md` has an entry under *Unreleased* for user-visible changes.

@@ -1,1 +1,0 @@
-event_action IN ("chat", "text_completion") gen_ai_request_max_tokens>=100000

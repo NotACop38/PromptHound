@@ -1,98 +1,151 @@
-"""Release-bundle guardrails (PRD §12, §17).
-
-The bundle's headline claims — byte-reproducibility and a per-file sha256
-manifest — are asserted here against real builds into a temp directory, so a
-silently introduced non-determinism or a wrong hash cannot ship.
-"""
-
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+import subprocess
 import tarfile
 from pathlib import Path
 
 import pytest
 
+from prompthound import __version__
 from scripts import release
 
 
-def test_release_dirty_blocker_limits_display(capsys) -> None:
-    entries = [f" M file_{i}.txt" for i in range(25)]
-
-    release._print_dirty_release_blocker(entries)
-
-    out = capsys.readouterr().out
-    assert "refusing to build release bundle from a dirty git checkout" in out
-    assert " M file_0.txt" in out
-    assert " M file_19.txt" in out
-    assert " M file_20.txt" not in out
-    assert "... and 5 more" in out
-    assert "--allow-dirty" in out
+def _members(path: Path) -> dict[str, tarfile.TarInfo]:
+    with tarfile.open(path) as archive:
+        return {info.name: info for info in archive.getmembers()}
 
 
-def _build_into(monkeypatch: pytest.MonkeyPatch, dist_dir: Path) -> Path:
-    monkeypatch.setattr(release, "DIST_DIR", dist_dir)
-    bundle = release.build_bundle("0.0.0-test")
-    assert bundle is not None, "bundle build failed against the committed out/ artifacts"
-    return bundle
+def _read(path: Path, name: str) -> bytes:
+    with tarfile.open(path) as archive:
+        member = archive.extractfile(name)
+        assert member is not None
+        return member.read()
 
 
-def test_release_bundle_is_byte_reproducible(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+def test_version_comes_from_the_package() -> None:
+    assert release.package_version() == __version__
+
+
+def test_collect_maps_sources_to_bundle_paths() -> None:
+    members = release.collect()
+    assert list(members) == sorted(members)
+    assert "schema/audit_log.schema.json" in members
+    assert "siem/splunk/app/prompthound/default/savedsearches.conf" in members
+    assert any(name.startswith("rules/prompt_injection/") for name in members)
+    assert not any("__pycache__" in name for name in members)
+
+
+def test_collect_rejects_missing_inputs_and_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # The same tree must yield an identical archive (sorted members, zeroed
-    # mtimes/uids, fixed gzip timestamp) — the D8 reproducibility claim.
-    first = _build_into(monkeypatch, tmp_path / "a")
-    second = _build_into(monkeypatch, tmp_path / "b")
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    (tmp_path / "real.txt").write_text("x")
+    (tmp_path / "link.txt").symlink_to(tmp_path / "real.txt")
+    (tmp_path / "tree").mkdir()
+    (tmp_path / "tree" / "inner.txt").symlink_to(tmp_path / "real.txt")
+    assert release.collect({"real.txt": "r.txt"}) == {"r.txt": b"x"}
+    with pytest.raises(ValueError, match="release input is missing"):
+        release.collect({"no/such/file": "x"})
+    with pytest.raises(ValueError, match="symbolic link"):
+        release.collect({"link.txt": "x"})
+    with pytest.raises(ValueError, match="symbolic link"):
+        release.collect({"tree": "t"})
+
+
+def test_archives_are_reproducible(tmp_path: Path) -> None:
+    members = {"b.txt": b"b", "a/x.txt": b"x"}
+    first, second = tmp_path / "1.tar.gz", tmp_path / "2.tar.gz"
+    release.write_archive(first, "root", members)
+    release.write_archive(second, "root", dict(reversed(members.items())))
     assert first.read_bytes() == second.read_bytes()
+    infos = _members(first)
+    assert list(infos) == ["root/a/x.txt", "root/b.txt"]
+    for info in infos.values():
+        assert (info.mtime, info.uid, info.gid, info.mode) == (0, 0, 0, 0o644)
+        assert (info.uname, info.gname) == ("", "")
 
 
-def test_release_manifest_hashes_match_sources(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+@pytest.fixture
+def dist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setattr(release, "DIST", tmp_path / "dist")
+    return tmp_path / "dist"
+
+
+def test_build_writes_a_verifiable_bundle_and_the_splunk_app(dist: Path) -> None:
+    bundle, app = release.build("9.9.9", "0" * 40, dirty=False)
+    assert bundle.name == "prompthound-detections-9.9.9.tar.gz"
+    assert app.name == "prompthound-9.9.9-splunk-app.tgz"
+
+    manifest = json.loads(_read(bundle, "prompthound-detections-9.9.9/MANIFEST.json"))
+    assert (manifest["version"], manifest["source_commit"], manifest["source_dirty"]) == (
+        "9.9.9",
+        "0" * 40,
+        False,
+    )
+    names = set(_members(bundle))
+    listed = {f"prompthound-detections-9.9.9/{f['path']}" for f in manifest["files"]}
+    assert names == listed | {"prompthound-detections-9.9.9/MANIFEST.json"}
+    for entry in manifest["files"]:
+        data = _read(bundle, f"prompthound-detections-9.9.9/{entry['path']}")
+        assert hashlib.sha256(data).hexdigest() == entry["sha256"]
+        assert len(data) == entry["bytes"]
+
+    app_names = set(_members(app))
+    assert "prompthound/default/savedsearches.conf" in app_names
+    assert "prompthound/metadata/default.meta" in app_names
+
+    again = release.build("9.9.9", "0" * 40, dirty=False)
+    assert [p.read_bytes() for p in again] == [bundle.read_bytes(), app.read_bytes()]
+
+
+class Git:
+    def __init__(self, status: str) -> None:
+        self.status = status
+
+    def __call__(self, *args: str) -> str:
+        return self.status if args[0] == "status" else "f" * 40 + "\n"
+
+
+def _generate_check(returncode: int) -> object:
+    def run(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], returncode)
+
+    return run
+
+
+def test_main_refuses_a_dirty_checkout(
+    dist: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    bundle = _build_into(monkeypatch, tmp_path / "dist")
-    manifest = json.loads((tmp_path / "dist" / "MANIFEST.json").read_text(encoding="utf-8"))
-    assert manifest["name"] == "prompthound-detections"
-    assert manifest["version"] == "0.0.0-test"
-    assert manifest["file_count"] == len(manifest["files"]) > 0
-    with tarfile.open(bundle, mode="r:gz") as archive:
-        root = "prompthound-detections-0.0.0-test/"
-        expected_names = {root + entry["path"] for entry in manifest["files"]}
-        assert set(archive.getnames()) == expected_names | {root + "MANIFEST.json"}
-        for entry in manifest["files"]:
-            member = archive.extractfile(root + entry["path"])
-            assert member is not None
-            data = member.read()
-            assert hashlib.sha256(data).hexdigest() == entry["sha256"]
-            assert len(data) == entry["bytes"]
+    monkeypatch.setattr(release, "_git", Git(" M README.md\n"))
+    monkeypatch.setattr(subprocess, "run", _generate_check(0))
+    assert release.main([]) == 1
+    assert "uncommitted changes" in capsys.readouterr().out
+    assert not dist.exists()
+
+    assert release.main(["--allow-dirty"]) == 0
+    bundle = dist / f"prompthound-detections-{__version__}.tar.gz"
+    manifest = _read(bundle, f"prompthound-detections-{__version__}/MANIFEST.json")
+    assert json.load(io.BytesIO(manifest))["source_dirty"] is True
 
 
-def test_release_bundle_carries_stamp_and_licenses(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+def test_main_requires_current_artifacts(
+    dist: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    bundle = _build_into(monkeypatch, tmp_path / "dist")
-    with tarfile.open(bundle, mode="r:gz") as tar:
-        names = {Path(n).name for n in tar.getnames()}
-    for required in ("VERSION", "MANIFEST.json", "README.txt", *release.LICENSE_FILES):
-        assert required in names, f"bundle is missing {required}"
+    monkeypatch.setattr(release, "_git", Git(""))
+    monkeypatch.setattr(subprocess, "run", _generate_check(1))
+    assert release.main([]) == 1
+    monkeypatch.setattr(subprocess, "run", _generate_check(0))
+    assert release.main([]) == 0
+    assert "sha256" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("version", ["../../escape", "0.2.0/extra", "\n0.2.0", "", "0.2.0\\file"])
-def test_release_rejects_unsafe_versions(version):
-    with pytest.raises(ValueError, match="version"):
-        release._resolve_version(version)
-
-
-def test_release_excludes_stray_output_file(tmp_path, monkeypatch):
-    from prompthound import coverage
-    from scripts import conversion
-
-    out = tmp_path / "out"
-    (out / "coverage").mkdir(parents=True)
-    (out / "coverage" / "private-note.txt").write_text("unintended payload")
-    monkeypatch.setattr(conversion, "OUT_DIR", out)
-    monkeypatch.setattr(conversion, "build_artifacts", lambda: ({}, []))
-    monkeypatch.setattr(coverage, "generate_artifacts", lambda: ({}, []))
-    with pytest.raises(ValueError, match="unexpected"):
-        release._collect_bundle_files()
+def test_an_unreadable_version_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    package = tmp_path / "src" / "prompthound"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text('__version__ = "latest"\n')
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    with pytest.raises(ValueError, match="semantic version"):
+        release.package_version()

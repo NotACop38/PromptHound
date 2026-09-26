@@ -1,0 +1,2 @@
+PromptHoundAuditLog_CL
+| where content_output_contains_system_prompt == true

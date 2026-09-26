@@ -1,0 +1,58 @@
+cases:
+  - name: Chain reads files and then sends email
+    expect: alert
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+          gen_ai.tool.name: send_email
+          tool.call.depth: 4
+          tool.call.chain: [search_kb, read_file, read_file, send_email]
+
+  - name: Sub-agent chain reads a vault secret and posts it
+    expect: alert
+    events:
+      - set:
+          gen_ai.operation.name: invoke_agent
+          gen_ai.agent.name: ops-agent
+          tool.call.depth: 2
+          tool.call.chain: [vault.read, http.post]
+
+  - name: Tool names match case-insensitively
+    expect: alert
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+          tool.call.depth: 2
+          tool.call.chain: [DB.QUERY, Slack.Post]
+
+  - name: Read-only chain
+    expect: silent
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+          gen_ai.tool.name: read_file
+          tool.call.depth: 2
+          tool.call.chain: [search_kb, read_file]
+
+  - name: Egress without a sensitive read
+    expect: silent
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+          gen_ai.tool.name: send_email
+          tool.call.depth: 2
+          tool.call.chain: [search_kb, send_email]
+
+  - name: Tool names must match exactly
+    expect: silent
+    events:
+      - set:
+          gen_ai.operation.name: execute_tool
+          tool.call.depth: 2
+          tool.call.chain: [db.query_metadata, send_email_draft]
+
+  - name: Chain recorded on a chat event is ignored
+    expect: silent
+    events:
+      - set:
+          tool.call.chain: [read_file, send_email]

@@ -1,0 +1,192 @@
+# Conformance cases for the Sigma subset that PromptHound accepts.
+#
+# Each case is a single-event detection and the events it must match. The unit
+# tests check the offline evaluator against `matches`; scripts/verify_siem.py
+# converts every case and checks that Splunk and the Kusto engine return the
+# same events. Together they pin down the matching semantics described in
+# docs/authoring.md, including the edge cases where SIEMs commonly differ.
+#
+# Every event carries the schema's required fields; `bare` carries nothing else.
+
+events:
+    bare: {}
+    lower:
+        user.id: alice
+        gen_ai.request.max_tokens: 5
+        cost.usd: 0.5
+        gen_ai.request.temperature: 0.0
+        output.rendered_unsanitized: false
+        tool.call.chain: [read_file]
+        gen_ai.input.messages:
+            - {role: user, parts: [{type: text, content: Please ignore this request.}]}
+    upper:
+        user.id: ALICE
+        gen_ai.request.max_tokens: 100
+        cost.usd: 2.25
+        gen_ai.request.temperature: 1.5
+        output.rendered_unsanitized: true
+        tool.call.chain: [READ_FILE, send_email]
+        gen_ai.input.messages:
+            - {role: user, parts: [{type: text, content: "IGNORE\nTHIS"}]}
+    dotted:
+        user.id: al.ice
+        gen_ai.request.max_tokens: 0
+        tool.call.chain: []
+        gen_ai.system_instructions: Answer briefly.
+    near:
+        user.id: alxice
+        gen_ai.request.temperature: 0
+    bob:
+        user.id: bob
+        cost.usd: 1.5
+        gen_ai.input.messages:
+            - {role: user, parts: [{type: text, content: 'Say "hi" to Zoë'}]}
+        gen_ai.system_instructions: [{type: text, content: Ignore this.}]
+    accent:
+        user.id: Élodie
+        # U+212A KELVIN SIGN, which Unicode lower-cases to an ASCII "k".
+        tool.call.chain: ["\u212A"]
+
+cases:
+    # Strings: case-insensitive, whole-value matching; `*` is the only wildcard.
+    - name: equality ignores case
+      detection: {s: {user.id: Alice}}
+      matches: [lower, upper]
+    - name: a value list matches any value
+      detection: {s: {user.id: [alice, bob]}}
+      matches: [lower, upper, bob]
+    - name: contains
+      detection: {s: {user.id|contains: LIC}}
+      matches: [lower, upper]
+    - name: startswith
+      detection: {s: {user.id|startswith: al}}
+      matches: [lower, upper, dotted, near]
+    - name: endswith
+      detection: {s: {user.id|endswith: ICE}}
+      matches: [lower, upper, dotted, near]
+    - name: a wildcard matches any run of characters
+      detection: {s: {user.id: a*e}}
+      matches: [lower, upper, dotted, near]
+    - name: a dot is literal
+      detection: {s: {user.id: al.ice}}
+      matches: [dotted]
+    - name: wildcard lists keep the order within each value
+      detection: {s: {user.id: ['*c*l*', '*o*b*']}}
+      matches: [bob]
+
+    # Content fields match their JSON text.
+    - name: contains all in content
+      detection: {s: {gen_ai.input.messages|contains|all: [ignore, this]}}
+      matches: [lower, upper]
+    - name: a wildcard spans an escaped line break
+      detection: {s: {gen_ai.input.messages|contains: ignore*this}}
+      matches: [lower, upper]
+    - name: quotes are escaped in the JSON text
+      detection: {s: {gen_ai.input.messages|contains: 'say "hi"'}}
+      matches: []
+    - name: an escaped quote matches
+      detection: {s: {gen_ai.input.messages|contains: 'say \"hi\"'}}
+      matches: [bob]
+
+    # Case folding covers ASCII letters only: a non-ASCII letter matches itself.
+    - name: a non-ASCII letter does not fold
+      detection: {s: {gen_ai.input.messages|contains: ZOË}}
+      matches: []
+    - name: ASCII letters beside a non-ASCII letter fold
+      detection: {s: {gen_ai.input.messages|contains: zoë}}
+      matches: [bob]
+    - name: a non-ASCII letter in an exact value
+      detection: {s: {user.id: ÉLODIE}}
+      matches: [accent]
+    - name: a non-ASCII letter in the other case
+      detection: {s: {user.id: élodie}}
+      matches: []
+    - name: a value list with a non-ASCII letter
+      detection: {s: {user.id: [ÉLODIE, BOB]}}
+      matches: [bob, accent]
+    - name: array elements fold ASCII letters only
+      detection: {s: {tool.call.chain: k}}
+      matches: []
+    - name: string content
+      detection: {s: {gen_ai.system_instructions|contains: BRIEF}}
+      matches: [dotted]
+    - name: structured content
+      detection: {s: {gen_ai.system_instructions|contains: ignore this}}
+      matches: [bob]
+
+    # Numbers compare numerically; integers and decimals are interchangeable.
+    - name: gte
+      detection: {s: {gen_ai.request.max_tokens|gte: 5}}
+      matches: [lower, upper]
+    - name: gt
+      detection: {s: {gen_ai.request.max_tokens|gt: 5}}
+      matches: [upper]
+    - name: lt
+      detection: {s: {gen_ai.request.max_tokens|lt: 5}}
+      matches: [dotted]
+    - name: lte
+      detection: {s: {gen_ai.request.max_tokens|lte: 5}}
+      matches: [lower, dotted]
+    - name: integer equality
+      detection: {s: {gen_ai.request.max_tokens: 0}}
+      matches: [dotted]
+    - name: decimal comparison
+      detection: {s: {cost.usd|gte: 1.5}}
+      matches: [upper, bob]
+    - name: decimal equality
+      detection: {s: {cost.usd: 0.5}}
+      matches: [lower]
+    - name: zero equals zero point zero
+      detection: {s: {gen_ai.request.temperature: 0}}
+      matches: [lower, near]
+
+    # Booleans.
+    - name: equals true
+      detection: {s: {output.rendered_unsanitized: true}}
+      matches: [upper]
+    - name: equals false
+      detection: {s: {output.rendered_unsanitized: false}}
+      matches: [lower]
+
+    # String arrays: exact, case-insensitive element matching.
+    - name: an element matches
+      detection: {s: {tool.call.chain: read_file}}
+      matches: [lower, upper]
+    - name: any listed element matches
+      detection: {s: {tool.call.chain: [send_email, fetch_url]}}
+      matches: [upper]
+    - name: all listed elements
+      detection: {s: {tool.call.chain|all: [read_file, send_email]}}
+      matches: [upper]
+
+    # Negation: an event without the field does not match the negated
+    # condition, so it matches the negation.
+    - name: negated string
+      detection: {s: {user.id: alice}, condition: not s}
+      matches: [bare, dotted, near, bob, accent]
+    - name: negated boolean
+      detection: {s: {output.rendered_unsanitized: true}, condition: not s}
+      matches: [bare, lower, dotted, near, bob, accent]
+    - name: negated content
+      detection: {s: {gen_ai.input.messages|contains: ignore}, condition: not s}
+      matches: [bare, dotted, near, bob, accent]
+    - name: negated group
+      detection:
+          a: {user.id: bob}
+          b: {output.rendered_unsanitized: true}
+          condition: not (a or b)
+      matches: [bare, lower, dotted, near, accent]
+
+    # Condition shorthands.
+    - name: one of
+      detection:
+          sel_name: {user.id|startswith: al}
+          sel_flag: {output.rendered_unsanitized: false}
+          condition: 1 of sel_*
+      matches: [lower, upper, dotted, near]
+    - name: all of
+      detection:
+          sel_name: {user.id|startswith: al}
+          sel_flag: {output.rendered_unsanitized: false}
+          condition: all of sel_*
+      matches: [lower]

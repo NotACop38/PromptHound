@@ -1,0 +1,33 @@
+cases:
+  - name: Request for a 200,000-token output budget
+    expect: alert
+    events:
+      - set:
+          gen_ai.request.max_tokens: 200000
+          gen_ai.response.finish_reasons: [length]
+
+  - name: Budget exactly at the threshold
+    expect: alert
+    events:
+      - set:
+          gen_ai.operation.name: generate_content
+          gen_ai.request.max_tokens: 100000
+
+  - name: Ordinary output budget
+    expect: silent
+    events:
+      - set:
+          gen_ai.request.max_tokens: 4096
+
+  - name: Budget just under the threshold
+    expect: silent
+    events:
+      - set:
+          gen_ai.request.max_tokens: 99999
+
+  - name: Embedding requests are ignored
+    expect: silent
+    events:
+      - set:
+          gen_ai.operation.name: embeddings
+          gen_ai.request.max_tokens: 200000

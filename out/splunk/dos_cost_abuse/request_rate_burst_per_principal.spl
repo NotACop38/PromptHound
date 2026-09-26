@@ -1,6 +1,0 @@
-event_action IN ("chat", "text_completion")
-
-| bin _time span=1m
-| stats count as event_count by _time user_tenant_id user_id
-
-| search event_count >= 20

@@ -1,0 +1,38 @@
+title: Instruction-Disclosure Phrase in LLM Output
+id: 7d0f4c5e-2b8a-4d63-9e1f-3a6c5b8e2d14
+related:
+    - id: 05450153-9a94-4bbb-bae5-c9ba47c92f4f
+      type: similar
+status: experimental
+description: |
+    Detects a response containing a phrase that commonly introduces recited instructions,
+    such as "my system prompt" or "here are my instructions". It is a hunting signal for
+    deployments without an output detector: the phrases also appear when an assistant talks
+    about prompts in general, and a response can disclose instructions without them.
+references:
+    - https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/
+    - https://atlas.mitre.org/techniques/AML.T0056
+author: PromptHound contributors
+date: 2026-09-26
+license: DRL-1.1
+logsource:
+    product: llm_gateway
+detection:
+    phrase:
+        gen_ai.output.messages|contains:
+            - 'you are a helpful assistant'
+            - 'my system prompt'
+            - 'my system instructions'
+            - 'my initial instructions'
+            - 'here are my instructions'
+            - 'the system prompt is'
+            - 'my instructions are'
+            - 'i was instructed to'
+    condition: phrase
+falsepositives:
+    - Responses that discuss prompt engineering or quote a generic instruction such as "you are a helpful assistant".
+    - Assistants that describe their intended behavior on request, by design.
+level: low
+prompthound:
+    owasp_llm: [LLM07]
+    atlas: [AML.T0056]

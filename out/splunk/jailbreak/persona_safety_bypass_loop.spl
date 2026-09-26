@@ -1,6 +1,0 @@
-event_action IN ("chat", "text_completion") gen_ai_input_messages IN ("*you are now dan*", "*do anything now*", "*developer mode*", "*ignore your safety guidelines*", "*ignore your guidelines*", "*bypass your restrictions*", "*without any restrictions*", "*pretend you have no rules*", "*you have no content policy*", "*act as an unrestricted*") gen_ai_response_finish_reasons="content_filter"
-
-| bin _time span=10m
-| stats count as event_count by _time user_tenant_id gen_ai_conversation_id
-
-| search event_count >= 3

@@ -1,0 +1,54 @@
+cases:
+  - name: Ten high-token completions for one principal
+    expect: alert
+    alerts: 1
+    events:
+      - set:
+          gen_ai.usage.input_tokens: 7200
+          gen_ai.usage.output_tokens: 4800
+          gen_ai.response.finish_reasons: [length]
+        repeat: 10
+        interval: 20s
+
+  - name: Completions exactly at the token floor are counted
+    expect: alert
+    events:
+      - set:
+          gen_ai.usage.input_tokens: 5000
+          gen_ai.usage.output_tokens: 3000
+        repeat: 10
+        interval: 20s
+
+  - name: Nine high-token completions stay below the threshold
+    expect: silent
+    events:
+      - set:
+          gen_ai.usage.input_tokens: 7200
+          gen_ai.usage.output_tokens: 4800
+        repeat: 9
+        interval: 20s
+
+  - name: Completions just under the token floor are not counted
+    expect: silent
+    events:
+      - set:
+          gen_ai.usage.input_tokens: 5000
+          gen_ai.usage.output_tokens: 2999
+        repeat: 12
+        interval: 20s
+
+  - name: High-token completions split across two principals
+    expect: silent
+    events:
+      - set:
+          user.id: user-batch-a
+          gen_ai.usage.input_tokens: 7200
+          gen_ai.usage.output_tokens: 4800
+        repeat: 6
+        interval: 15s
+      - set:
+          user.id: user-batch-b
+          gen_ai.usage.input_tokens: 7200
+          gen_ai.usage.output_tokens: 4800
+        repeat: 6
+        interval: 15s

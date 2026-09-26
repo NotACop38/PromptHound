@@ -1,0 +1,117 @@
+{
+  "name": "PromptHound rule mappings",
+  "versions": {
+    "layer": "4.3",
+    "navigator": "4.6.4"
+  },
+  "domain": "atlas-atlas",
+  "description": "Number of PromptHound rules mapped to each ATLAS technique. A mapping is not a measure of detection coverage.",
+  "metadata": [
+    {
+      "name": "atlas_data_version",
+      "value": "2026.09"
+    }
+  ],
+  "techniques": [
+    {
+      "techniqueID": "AML.T0029",
+      "score": 1,
+      "comment": "Completion Request Burst from One Principal",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0034",
+      "score": 1,
+      "comment": "Repeated Length-Truncated Completions in One Conversation",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0034.000",
+      "score": 1,
+      "comment": "Completion Request Burst from One Principal",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0034.001",
+      "score": 2,
+      "comment": "Repeated High-Token Completions for One Principal; Very Large Output Budget Requested",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0034.002",
+      "score": 1,
+      "comment": "High Tool-Call Volume in One Conversation",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0051.000",
+      "score": 2,
+      "comment": "Instruction-Override Phrase in LLM Input; Multiple Injection Markers Scored on LLM Input",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0051.001",
+      "score": 1,
+      "comment": "Injection Phrase in Retrieval-Augmented Input from Untrusted Sources",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0053",
+      "score": 1,
+      "comment": "Repeated Denied Tool Calls in One Conversation",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0054",
+      "score": 1,
+      "comment": "Repeated Blocked Jailbreak Attempts in One Conversation",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0056",
+      "score": 3,
+      "comment": "Instruction-Disclosure Phrase in LLM Output; System-Prompt Content Detected in LLM Output; System-Prompt Extraction Phrase in LLM Input",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0057",
+      "score": 1,
+      "comment": "Repeated Sensitive Data in LLM Output for One Principal",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0085.001",
+      "score": 1,
+      "comment": "Sensitive-Read and Egress Tools in One Agent Tool Chain",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "AML.T0086",
+      "score": 1,
+      "comment": "Sensitive-Read and Egress Tools in One Agent Tool Chain",
+      "enabled": true,
+      "showSubtechniques": true
+    }
+  ],
+  "gradient": {
+    "colors": [
+      "#dbe9f6",
+      "#1f5f9f"
+    ],
+    "minValue": 0,
+    "maxValue": 3
+  },
+  "hideDisabled": false
+}

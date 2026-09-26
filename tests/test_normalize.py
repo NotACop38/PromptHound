@@ -1,90 +1,106 @@
+from __future__ import annotations
+
 import json
+import stat
+from pathlib import Path
+from typing import Any
 
 import pytest
 
-from prompthound.generator import build_samples, iter_events
-from prompthound.normalize import normalize_event, normalize_file
-from prompthound.schema import validate_event
+from prompthound.normalize import NormalizationError, normalize_event, normalize_file
+from prompthound.scenarios import base_event
 
 
 @pytest.fixture
-def event():
-    return next(iter_events(build_samples(n_benign=1)))
+def event() -> dict[str, Any]:
+    return {
+        **base_event("norm"),
+        "timestamp": "2026-06-01T14:00:00+02:00",
+        "event.id": "e-1",
+        "tool.call.chain": ["search_kb"],
+    }
 
 
-def test_normalization_preserves_values_and_arrays(event):
-    mapped = normalize_event(event)
-    assert len(mapped) == len(event)
-    assert mapped["gen_ai_response_finish_reasons"] == ["stop"]
-    assert mapped["user_tenant_id"] == "tenant-demo"
-    assert mapped["gen_ai_input_messages"] == event["gen_ai.input.messages"]
-    assert mapped["timestamp"] == event["timestamp"]
+def test_fields_become_columns_and_timestamp_comes_first(event: dict[str, Any]) -> None:
+    normalized = normalize_event(event)
+    assert next(iter(normalized)) == "timestamp"
+    assert normalized["timestamp"] == "2026-06-01T12:00:00.000000Z"
+    assert normalized["user_tenant_id"] == "tenant-example"
+    assert normalized["tool_call_chain"] == ["search_kb"]
+    assert "user.tenant.id" not in normalized
+    assert len(normalized) == len(event)
 
 
-@pytest.mark.parametrize("field", ["user_id", "extension.unknown"])
-def test_normalization_rejects_collisions_and_unmapped_dotted_fields(event, field):
-    event[field] = "ambiguous"
-    with pytest.raises(ValueError, match="conflicting"):
-        normalize_event(event)
+def test_content_becomes_compact_json_text(event: dict[str, Any]) -> None:
+    normalized = normalize_event(event)
+    assert isinstance(normalized["gen_ai_input_messages"], str)
+    assert json.loads(normalized["gen_ai_input_messages"]) == event["gen_ai.input.messages"]
+    assert ", " not in normalized["gen_ai_input_messages"]
+    plain = normalize_event({**event, "gen_ai.system_instructions": "Be brief."})
+    assert plain["gen_ai_system_instructions"] == "Be brief."
 
 
-@pytest.mark.parametrize(
-    "timestamp", ["nonsense", "2026-06-11", "2026-06-11T12:00:00", "2026-06-11T12:00:00+00:99"]
-)
-def test_schema_rejects_unusable_event_times(event, timestamp):
-    event["timestamp"] = timestamp
-    assert validate_event(event)
+def test_extension_fields_are_kept(event: dict[str, Any]) -> None:
+    normalized = normalize_event({**event, "gateway.region": "eu", "flat": {"a": 1}})
+    assert normalized["gateway_region"] == "eu"
+    assert normalized["flat"] == {"a": 1}
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
-def test_schema_rejects_nonfinite_metrics(event, value):
-    event["cost.usd"] = value
-    assert validate_event(event)
+def test_column_collisions_are_rejected(event: dict[str, Any]) -> None:
+    with pytest.raises(NormalizationError, match="share column 'user_id'"):
+        normalize_event({**event, "user_id": "shadow"})
 
 
-def test_schema_rejects_unknown_version(event):
-    event["schema_version"] = "unknown"
-    assert validate_event(event)
+def test_invalid_events_are_rejected(event: dict[str, Any]) -> None:
+    with pytest.raises(NormalizationError, match="invalid audit event"):
+        normalize_event({**event, "event.outcome": "maybe"})
 
 
-def test_validator_rejects_unsupported_constraints():
-    with pytest.raises(NotImplementedError, match="subset"):
-        validate_event(
-            {"cost": 100},
-            {"type": "object", "properties": {"cost": {"type": "number", "maximum": 1}}},
-        )
+def _write(path: Path, *events: Any) -> Path:
+    path.write_text("".join(json.dumps(e) + "\n" for e in events), encoding="utf-8")
+    return path
 
 
-def test_invalid_later_line_preserves_existing_output(tmp_path, event):
-    source, output = tmp_path / "events.jsonl", tmp_path / "normalized.jsonl"
-    source.write_text(json.dumps(event) + "\nnull\n")
-    output.write_text("previous complete output\n")
-    with pytest.raises(ValueError, match="line 2"):
-        normalize_file(source, output)
-    assert output.read_text() == "previous complete output\n"
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["events.jsonl", "normalized.jsonl"]
+def test_files_are_written_atomically_and_privately(tmp_path: Path, event: dict[str, Any]) -> None:
+    source = _write(tmp_path / "in.jsonl", event, event)
+    destination = tmp_path / "out" / "siem.jsonl"
+    assert normalize_file(source, destination) == 2
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    assert [json.loads(line)["event_id"] for line in destination.read_text().splitlines()] == [
+        "e-1",
+        "e-1",
+    ]
+
+
+def test_a_bad_line_leaves_the_destination_untouched(tmp_path: Path, event: dict[str, Any]) -> None:
+    source = tmp_path / "in.jsonl"
+    source.write_text(json.dumps(event) + "\n\n" + "{not json\n", encoding="utf-8")
+    destination = tmp_path / "siem.jsonl"
+    destination.write_text("previous\n")
+    with pytest.raises(NormalizationError, match="line 3"):
+        normalize_file(source, destination)
+    assert destination.read_text() == "previous\n"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.jsonl", "siem.jsonl"]
 
 
 @pytest.mark.parametrize(
     "duplicate",
-    [
-        '"content.input.injection_markers":9,"content.input.injection_markers":0',
-        '"extension":{"counter":9,"counter":0}',
-    ],
+    ['"user.id":"a","user.id":"b"', '"extension":{"k":1,"k":2}'],
 )
-def test_duplicate_json_names_preserve_existing_output(tmp_path, event, duplicate):
-    source, output = tmp_path / "events.jsonl", tmp_path / "normalized.jsonl"
-    valid = json.dumps(event)
-    source.write_text(valid + "\n" + valid[:-1] + "," + duplicate + "}\n")
-    output.write_text("previous complete output\n")
-    with pytest.raises(ValueError, match="line 2"):
-        normalize_file(source, output)
-    assert output.read_text() == "previous complete output\n"
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["events.jsonl", "normalized.jsonl"]
+def test_duplicate_keys_are_rejected_at_any_depth(
+    tmp_path: Path, event: dict[str, Any], duplicate: str
+) -> None:
+    line = json.dumps(event)[:-1] + "," + duplicate + "}"
+    source = tmp_path / "in.jsonl"
+    source.write_text(line + "\n", encoding="utf-8")
+    with pytest.raises(NormalizationError, match="duplicate JSON key"):
+        normalize_file(source, tmp_path / "out.jsonl")
 
 
-def test_normalization_cannot_overwrite_source(tmp_path, event):
-    source = tmp_path / "events.jsonl"
-    source.write_text(json.dumps(event) + "\n")
-    with pytest.raises(ValueError, match="different files"):
+def test_empty_input_and_same_file_are_rejected(tmp_path: Path) -> None:
+    source = tmp_path / "in.jsonl"
+    source.write_text("\n", encoding="utf-8")
+    with pytest.raises(NormalizationError, match="contains no events"):
+        normalize_file(source, tmp_path / "out.jsonl")
+    with pytest.raises(NormalizationError, match="different files"):
         normalize_file(source, source)

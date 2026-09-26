@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NotACop38/PromptHound/blob/main/src/prompthound/data/audit_log.schema.json",
+  "title": "PromptHound LLM audit event",
+  "description": "One JSON object per LLM or agent operation. Fields annotated x-origin=otel use OpenTelemetry GenAI semantic-convention attribute names; x-origin=prompthound fields are extensions. x-class is metadata (recorded without analyzing content), derived (produced by a content detector), or content (raw prompt, response or tool payload).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "timestamp",
+    "event.id",
+    "event.outcome",
+    "gen_ai.operation.name"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.2",
+      "description": "Schema version of this event.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Operation time as an RFC 3339 timestamp with a UTC offset.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "event.id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique event identifier; used to deduplicate replayed events.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "event.outcome": {
+      "type": "string",
+      "enum": ["success", "failure", "blocked"],
+      "description": "Operation outcome. blocked means a policy stopped the operation.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "gen_ai.operation.name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Operation name. Well-known values include chat, generate_content, text_completion, embeddings, retrieval, execute_tool, invoke_agent, create_agent and invoke_workflow.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.conversation.id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Conversation or session identifier, unique within the tenant.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.provider.name": {
+      "type": "string",
+      "description": "Model provider, for example openai, anthropic or aws.bedrock.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.request.model": {
+      "type": "string",
+      "description": "Requested model name.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.response.model": {
+      "type": "string",
+      "description": "Model that produced the response.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "service.name": {
+      "type": "string",
+      "description": "Name of the LLM application or gateway.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "deployment.environment.name": {
+      "type": "string",
+      "description": "Deployment environment, for example production or staging.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "user.id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pseudonymous principal identifier, unique within the tenant.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "user.roles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Roles or authorization groups of the principal.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "user.tenant.id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Tenant or organization identifier. Every correlation groups by it.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "api_key.id": {
+      "type": "string",
+      "description": "Opaque or hashed API key identifier. Never the key itself.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "client.address": {
+      "type": "string",
+      "description": "Address of the client that called the gateway.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "user_agent.original": {
+      "type": "string",
+      "description": "Client user agent.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "http.request.id": {
+      "type": "string",
+      "description": "Request identifier for correlation with upstream HTTP logs.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "gen_ai.usage.input_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Input tokens consumed.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.usage.output_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Output tokens produced.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.usage.reasoning.output_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Reasoning tokens, when the provider reports them.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "usage.total_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Input plus output tokens.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "gen_ai.request.temperature": {
+      "type": "number",
+      "description": "Requested sampling temperature.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.request.top_p": {
+      "type": "number",
+      "description": "Requested nucleus-sampling probability.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.request.max_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Requested maximum output tokens.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.request.choice.count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Requested number of candidate completions.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.response.finish_reasons": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Finish reason per choice, for example stop, length, tool_calls or content_filter.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "cost.usd": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Gateway-computed cost of the operation in US dollars.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "error.type": {
+      "type": "string",
+      "description": "Low-cardinality error class when the operation failed.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "guardrail.input.flagged": {
+      "type": "boolean",
+      "description": "An input guardrail flagged the request.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    },
+    "guardrail.input.categories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Input guardrail categories, for example injection or pii.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    },
+    "guardrail.output.flagged": {
+      "type": "boolean",
+      "description": "An output guardrail flagged the response.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    },
+    "guardrail.output.categories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Output guardrail categories.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    },
+    "policy.decision": {
+      "type": "string",
+      "enum": ["allow", "block", "redact"],
+      "description": "Gateway policy decision for the operation.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "gen_ai.data_source.id": {
+      "type": "string",
+      "description": "Identifier of the data source used for retrieval.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "rag.retrieved.count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of retrieved chunks added to the model context.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "rag.source.types": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Types of the retrieved sources, for example web, email, file, ticket or db.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "gen_ai.agent.id": {
+      "type": "string",
+      "description": "Agent identifier.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.agent.name": {
+      "type": "string",
+      "description": "Agent name.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.tool.name": {
+      "type": "string",
+      "description": "Name of the invoked tool.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.tool.call.id": {
+      "type": "string",
+      "description": "Tool call identifier.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.tool.type": {
+      "type": "string",
+      "description": "Tool type, for example function, extension or datastore.",
+      "x-origin": "otel",
+      "x-class": "metadata"
+    },
+    "gen_ai.tool.call.arguments": {
+      "description": "Arguments passed to the tool.",
+      "x-origin": "otel",
+      "x-class": "content"
+    },
+    "gen_ai.tool.call.result": {
+      "description": "Result returned by the tool.",
+      "x-origin": "otel",
+      "x-class": "content"
+    },
+    "tool.call.depth": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Position of this call in the current tool chain.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "tool.call.chain": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of the tools invoked so far in this turn, in order.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "tool.call.outcome": {
+      "type": "string",
+      "enum": ["success", "error", "denied"],
+      "description": "Outcome of the tool call. denied means an authorization policy refused it.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "output.sink": {
+      "type": "string",
+      "enum": ["html_render", "sql_exec", "shell_exec", "code_eval", "markdown", "downstream_api", "none"],
+      "description": "Downstream consumer that received the model output.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "output.rendered_unsanitized": {
+      "type": "boolean",
+      "description": "The output reached its sink without sanitization or escaping.",
+      "x-origin": "prompthound",
+      "x-class": "metadata"
+    },
+    "gen_ai.system_instructions": {
+      "type": ["string", "array"],
+      "description": "System instructions supplied to the model.",
+      "x-origin": "otel",
+      "x-class": "content"
+    },
+    "gen_ai.input.messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string" },
+          "parts": { "type": "array" }
+        }
+      },
+      "description": "Input messages in the OpenTelemetry message format: {role, parts}.",
+      "x-origin": "otel",
+      "x-class": "content"
+    },
+    "gen_ai.output.messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string" },
+          "parts": { "type": "array" },
+          "finish_reason": { "type": "string" }
+        }
+      },
+      "description": "Output messages in the OpenTelemetry message format: {role, parts, finish_reason}.",
+      "x-origin": "otel",
+      "x-class": "content"
+    },
+    "content.input.injection_markers": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of prompt-injection or instruction-extraction markers a detector found in the input.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    },
+    "content.output.contains_system_prompt": {
+      "type": "boolean",
+      "description": "A detector found system-instruction content in the output.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    },
+    "content.output.pii.types": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Personal-data classes a detector found in the output, for example email, phone or ssn.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    },
+    "content.output.secret.types": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Credential classes a detector found in the output, for example api_key or private_key.",
+      "x-origin": "prompthound",
+      "x-class": "derived"
+    }
+  }
+}

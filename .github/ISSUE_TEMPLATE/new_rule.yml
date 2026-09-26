@@ -1,31 +1,26 @@
-name: New detection rule
-description: Propose a new PromptHound Sigma rule. Metadata (OWASP + ATLAS + tier) and positive/negative samples are required.
-title: "[rule] <behavior the rule detects>"
+name: Rule proposal
+description: Propose a detection rule for PromptHound.
+title: "[rule] "
 labels: ["rule"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for proposing a detection! PromptHound is **strictly defensive**.
-        A rule encodes an attack's **log signature**, not a working exploit
-        (P1 — see [SECURITY.md](../../blob/main/SECURITY.md) and
-        [CONTRIBUTING.md](../../blob/main/CONTRIBUTING.md)). Do **not** paste
-        operational jailbreak/injection payloads here — describe the
-        generalizable signature.
-
-        New to authoring? See **[docs/authoring.md](../../blob/main/docs/authoring.md)** ("add a rule in 10 minutes").
-  - type: input
-    id: title
+        Describe the behavior as it appears in audit events. Do not paste working
+        payloads or real credentials. See
+        [docs/authoring.md](https://github.com/NotACop38/PromptHound/blob/main/docs/authoring.md)
+        for the rule format and the supported Sigma subset.
+  - type: textarea
+    id: behavior
     attributes:
-      label: Rule title
-      description: One rule = one behavior.
-      placeholder: e.g. Denied-then-retry agent tool loop per conversation
+      label: Behavior
+      description: What the rule detects, why it indicates an attack or misuse, and the schema fields it reads.
     validations:
       required: true
   - type: dropdown
     id: category
     attributes:
-      label: Category (rules/ subdirectory)
+      label: Category
       options:
         - prompt_injection
         - system_prompt_extraction
@@ -34,79 +29,39 @@ body:
         - agent_tool_abuse
         - dos_cost_abuse
         - insecure_output
-        - (new category — explain below)
-    validations:
-      required: true
-  - type: textarea
-    id: behavior
-    attributes:
-      label: What it detects (and why)
-      description: The behavior/log signature, and the schema fields it keys on (dotted names, e.g. tool.call.outcome).
-    validations:
-      required: true
-  - type: input
-    id: owasp_llm
-    attributes:
-      label: OWASP LLM Top 10 (2025)
-      description: Required. The primary user-facing taxonomy tag.
-      placeholder: e.g. LLM06
-    validations:
-      required: true
-  - type: input
-    id: atlas
-    attributes:
-      label: MITRE ATLAS technique/tactic
-      description: Required. At least one ATLAS technique or tactic (or an ATT&CK technique where it genuinely maps).
-      placeholder: e.g. AML.TA0015 + AML.T0085.001
+        - other (explain under Behavior)
     validations:
       required: true
   - type: dropdown
-    id: tier
+    id: telemetry
     attributes:
-      label: Detection tier
-      description: T1 = operational/always-on metadata; T2 = content inspection (opt-in). Prefer T1/derived where equivalent (P4).
+      label: Telemetry
+      description: The most sensitive data class the rule needs.
       options:
-        - "T1 — operational / always-on"
-        - "T2 — content inspection / opt-in"
+        - Metadata only
+        - Output of a content detector
+        - Raw prompt or response content
     validations:
       required: true
   - type: input
-    id: owasp_agentic
+    id: mappings
     attributes:
-      label: OWASP Agentic AI threat (agent rules only)
-      description: Required for rules under agent_tool_abuse/; leave blank otherwise. Secondary mapping (PRD D6).
-      placeholder: e.g. T2 Tool Misuse
-    validations:
-      required: false
-  - type: textarea
-    id: positive
-    attributes:
-      label: Positive (should-alert) sample — signature, not payload
-      description: Describe the malicious sample event(s) as a log signature (marker phrases / behavioral pattern). No working exploits (P1).
+      label: Mappings
+      description: OWASP LLM Top 10 2025, OWASP Agentic Top 10 2026 (agent rules), and MITRE ATLAS or ATT&CK.
+      placeholder: LLM06, ASI02, AML.T0053
     validations:
       required: true
   - type: textarea
-    id: negative
+    id: cases
     attributes:
-      label: Negative (should-not-alert) sample
-      description: A near-miss benign event the rule must stay silent on.
+      label: Scenario cases
+      description: Event sequences that must alert, and near misses that must stay silent.
     validations:
       required: true
   - type: textarea
     id: falsepositives
     attributes:
-      label: Honest false positives
-      description: Where will this legitimately misfire, and how should an operator scope/tune it?
+      label: False positives
+      description: Benign activity that would match, and how to scope or tune for it.
     validations:
       required: true
-  - type: checkboxes
-    id: posture
-    attributes:
-      label: Defensive posture (P1–P4)
-      options:
-        - label: This is a log **signature**, not a working exploit (P1).
-          required: true
-        - label: Nothing here targets a live model endpoint (P2).
-          required: true
-        - label: I prefer Tier-1 / derived fields where equivalent to raw content (P4).
-          required: true
